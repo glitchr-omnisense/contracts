@@ -1,0 +1,19 @@
+{
+    "$schema": "../../resources/usage-policy.schema.json",
+    "provider": "transit",
+    "rateLimits": [
+        {"max": 720, "window": "day", "operations": ["journeys"], "note": "More is heavy use: ask first."},
+        {"max": 5, "window": "second"}
+    ],
+    "rights": {
+        "commercial": "forbidden",
+        "openSourceRequired": true,
+        "caching": {"permission": "allowed", "maxTtl": 3600},
+        "storage": "unknown",
+        "redistribution": "forbidden",
+        "attribution": {"required": true, "text": "Transit and its sources", "url": "https://transit.example/sources/", "where": ["display"]},
+        "licence": "ODbL-1.0"
+    },
+    "requirements": {"key": false, "userAgent": {"required": true, "pattern": "~^\\S+/\\S+.*(?:https?://|@)~"}},
+    "provenance": {"terms": "https://transit.example/api/", "policy": "https://transit.example/api/#policy", "verifiedAt": "2026-11-10", "declaredBy": "maintainer", "contact": "api@transit.example"}
+}

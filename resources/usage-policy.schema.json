@@ -1,0 +1,91 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/glitchr-omnisense/contracts/blob/1.x/resources/usage-policy.schema.json",
+    "title": "Usage policy of an omnisense provider",
+    "description": "A provider's rate limits, the rights its terms give, what every request must carry, and where this was read. Omnisense\\Contracts\\Policy\\UsagePolicy::fromArray() reads it; a site may tighten it, never loosen it.",
+    "type": "object",
+    "required": ["provider"],
+    "additionalProperties": false,
+    "properties": {
+        "$schema": {"type": "string"},
+        "provider": {"type": "string", "minLength": 1, "description": "The provider's factory name: \"transitous\", \"navitia\", \"gtfs:angers\"."},
+        "rateLimits": {
+            "description": "null: nobody knows them; []: the terms set none. Every limit counts: the strictest wins.",
+            "oneOf": [
+                {"type": "null"},
+                {"type": "array", "items": {"$ref": "#/$defs/rateLimit"}}
+            ]
+        },
+        "rights": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "commercial": {"$ref": "#/$defs/permission"},
+                "openSourceRequired": {"type": ["boolean", "null"], "description": "null: the terms do not say, or nobody read them."},
+                "caching": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "permission": {"$ref": "#/$defs/permission"},
+                        "maxTtl": {"type": ["integer", "null"], "minimum": 0, "description": "Seconds; null: no maximum."}
+                    }
+                },
+                "storage": {"$ref": "#/$defs/permission"},
+                "redistribution": {"$ref": "#/$defs/permission"},
+                "attribution": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "required": {"type": "boolean"},
+                        "text": {"type": ["string", "null"]},
+                        "url": {"type": ["string", "null"]},
+                        "where": {"type": "array", "uniqueItems": true, "items": {"enum": ["display", "map", "credits", "source"]}}
+                    }
+                },
+                "licence": {"type": ["string", "null"], "description": "The data's licence, as SPDX names it where it can."}
+            }
+        },
+        "requirements": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "key": {"type": "boolean"},
+                "userAgent": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "required": {"type": "boolean"},
+                        "pattern": {"type": ["string", "null"], "description": "A PCRE, delimiters included, the User-Agent must match."}
+                    }
+                }
+            }
+        },
+        "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "terms": {"type": ["string", "null"]},
+                "policy": {"type": ["string", "null"]},
+                "verifiedAt": {"type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+                "declaredBy": {"enum": ["maintainer", "provider", "site"]},
+                "contact": {"type": ["string", "null"]},
+                "notes": {"type": ["string", "null"]}
+            }
+        }
+    },
+    "$defs": {
+        "permission": {"enum": ["allowed", "unknown", "contract", "forbidden"]},
+        "rateLimit": {
+            "type": "object",
+            "required": ["max", "window"],
+            "additionalProperties": false,
+            "properties": {
+                "max": {"type": "integer", "minimum": 0},
+                "window": {"enum": ["second", "minute", "hour", "day", "month"]},
+                "scope": {"enum": ["application", "key", "client-ip", "user"], "default": "application"},
+                "operations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "The family's operations it counts (its contract methods: \"journeys\", \"departures\"); empty: every one."},
+                "note": {"type": ["string", "null"]}
+            }
+        }
+    }
+}

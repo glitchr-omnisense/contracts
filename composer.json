@@ -1,0 +1,64 @@
+{
+    "name": "omnisense/contracts",
+    "type": "library",
+    "description": "The contracts every omnisense provider family builds on, under any PHP host: a provider, its capabilities, its factory and configuration, the registry of an application's providers, JSON calls that keep credentials out of every error, the testing kit (recorded HTTP answers, the bare check) - and usage policies: a provider's rate limits, rights (commercial use, open source, caching, storage, attribution) and request requirements, declared as data, tightened by a site, enforced by a guard that also honours Retry-After and the RateLimit header fields.",
+    "keywords": [
+        "contracts",
+        "provider",
+        "registry",
+        "usage-policy",
+        "rate-limit",
+        "ratelimit-headers",
+        "retry-after",
+        "attribution",
+        "framework-agnostic",
+        "omnisense"
+    ],
+    "homepage": "https://github.com/glitchr-omnisense/contracts",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Marco Meyer",
+            "email": "marco.meyer@glitchr.io"
+        }
+    ],
+    "require": {
+        "php": ">=8.2",
+        "ext-mbstring": "*",
+        "symfony/http-client-contracts": "^3.0"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11.0",
+        "symfony/http-client": "^6.4|^7.0|^8.0"
+    },
+    "suggest": {
+        "phpunit/phpunit": "Testing\\: BareTestCase, the check that a package loads with what it requires alone",
+        "omnibridge/symfony": "A RateLimiterInterface over symfony/rate-limiter, so that limits count across requests and servers"
+    },
+    "autoload": {
+        "psr-4": {
+            "Omnisense\\Contracts\\": ""
+        },
+        "exclude-from-classmap": [
+            "/Tests/",
+            "/bin/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Omnisense\\Contracts\\Tests\\": "Tests/"
+        }
+    },
+    "bin": [
+        "bin/omnisense-policies"
+    ],
+    "extra": {
+        "branch-alias": {
+            "dev-1.x": "1.x-dev"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

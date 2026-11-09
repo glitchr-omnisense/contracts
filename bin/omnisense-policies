@@ -1,0 +1,45 @@
+#!/usr/bin/env php
+<?php
+
+/*
+ * Prints every declared usage policy as JSON (Omnisense\Contracts\Policy\PolicyExport):
+ *
+ *   vendor/bin/omnisense-policies                          the application's packages (vendor/composer/installed.json)
+ *   vendor/bin/omnisense-policies --installed=path/to/installed.json
+ *   vendor/bin/omnisense-policies ~/Sites/omnitravel/*     package folders (a workspace's checkouts)
+ *
+ * Exits 1 when a declared policy cannot be read (its error is in the output).
+ */
+
+use Omnisense\Contracts\Policy\PolicyExport;
+
+foreach ([$GLOBALS['_composer_autoload_path'] ?? null, __DIR__.'/../vendor/autoload.php', __DIR__.'/../../../autoload.php'] as $autoload) {
+    if (is_string($autoload) && is_file($autoload)) {
+        require $autoload;
+        break;
+    }
+}
+
+$export = new PolicyExport();
+$folders = [];
+$installed = null;
+foreach (array_slice($argv, 1) as $argument) {
+    if (str_starts_with($argument, '--installed=')) {
+        $installed = substr($argument, 12);
+    } else {
+        $folders[] = rtrim($argument, '/');
+    }
+}
+if ([] === $folders) {
+    $installed ??= is_file(getcwd().'/vendor/composer/installed.json') ? getcwd().'/vendor/composer/installed.json' : null;
+    if (null === $installed) {
+        fwrite(STDERR, "No vendor/composer/installed.json here: give --installed=<path> or package folders.\n");
+        exit(2);
+    }
+}
+if (null !== $installed) {
+    $export->installed($installed);
+}
+$export->folders(...$folders);
+echo $export->toJson();
+exit([] === array_filter($export->entries(), static fn (array $entry) => isset($entry['error'])) ? 0 : 1);
