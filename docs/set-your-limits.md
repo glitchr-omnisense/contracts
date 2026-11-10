@@ -14,8 +14,11 @@ package's repository changing it, or take over the package.
 ## What you can say
 
 - **Rate limits**: as many as you need, each with a maximum, a window (`second`, `minute`,
-  `hour`, `day`, `month`), a scope (`application`, `key`, `client-ip`, `user`) and the
-  operations it counts. Every one is enforced before the call leaves the site.
+  `hour`, `day`, `month`, or several of them: `"every": 5`), a scope (`application`, `key`,
+  `client-ip`, `user`) and the operations it counts. A limit may count `units`, `points`,
+  `characters` or `content-bytes` instead of requests, with what each operation costs
+  (`"cost": {"search": 100}`). Every one is enforced before the call leaves the site.
+- **Concurrency**: the most requests you take in flight at once.
 - **Rights**: commercial use (`allowed`, `contract`, `forbidden`), open source required,
   caching (allowed up to `maxTtl` seconds, or `forbidden`), storage and redistribution of your
   data, the attribution (its text, its link, where it must show: `display`, `map`, `credits`,

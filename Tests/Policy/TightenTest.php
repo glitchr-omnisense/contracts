@@ -34,6 +34,26 @@ final class TightenTest extends TestCase
         self::assertEquals(self::declared(), self::declared()->tighten([]));
     }
 
+    /**
+     * Regression: a policy carrying two limits on the same calls (a site's
+     * tightening already in it, or a provider's own two figures) read its own
+     * higher one as a loosening of the lower, and refused any tightening.
+     * Only the limits a site adds are compared with the declared ones.
+     */
+    public function testAPolicyWithTwoLimitsOnTheSameCallsCanStillBeTightened(): void
+    {
+        $once = self::declared()->tighten(['rateLimits' => [['max' => 600, 'window' => 'day', 'operations' => ['journeys']]]]);
+        $twice = $once->tighten(['rateLimits' => [['max' => 500, 'window' => 'day', 'operations' => ['journeys']]], 'rights' => ['storage' => 'forbidden']]);
+
+        self::assertSame(['720/day/application/journeys', '5/second/application/*', '600/day/application/journeys', '500/day/application/journeys'], array_map(static fn ($l) => $l->id(), $twice->rateLimits ?? []));
+        self::assertSame(Permission::Forbidden, $once->tighten(['rights' => ['storage' => 'forbidden']])->rights->storage);
+        $own = UsagePolicy::fromArray(['provider' => 'x', 'rateLimits' => [['max' => 100, 'window' => 'day'], ['max' => 1000, 'window' => 'day', 'note' => 'the paid plan']]]);
+        self::assertCount(3, $own->tighten(['rateLimits' => [['max' => 50, 'window' => 'hour']]])->rateLimits ?? []);
+
+        $this->expectExceptionMessage('rate limit is 600 a day for journeys, the configuration asks 650 a day for journeys');
+        $once->tighten(['rateLimits' => [['max' => 650, 'window' => 'day', 'operations' => ['journeys']]]]);
+    }
+
     public function testLimitsUnknownTakeTheSitesOwn(): void
     {
         $site = UsagePolicy::unknown('x')->tighten(['rateLimits' => [['max' => 600, 'window' => 'day']]]);

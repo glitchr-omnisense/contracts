@@ -41,9 +41,16 @@ $registry->guard('echo')->call('say', fn () => $registry->get('echo')->say('hi')
   gives a provider keeping a contract or the family's NotSupportedException; `policy()`,
   `policies()` give the policies as the site runs them.
 - `Http\JsonClient` calls the provider; every failure leaves without its credentials
-  (`Redaction`). Given a `Backoff`, it honours 429s, `Retry-After` and `RateLimit`.
+  (`Redaction`). Given a `Backoff`, it honours 429s, `Retry-After` and `RateLimit`. An empty
+  body (204, 304) is an empty `Data`; `decode()` is the hook for a body read otherwise.
+  `raw()` makes any other call (XML, an ETag to read, a 412 to pass) and gives an
+  `Http\Answer`: status, lower-case headers, body, and the URL that answered after redirects.
+  A header may carry several values (`['Prefer' => ['a', 'b']]`).
 - `Testing\RecordedHttpClient::routes()` answers by pattern, headers included (a 429's
-  `Retry-After`); `Testing\BareTestCase` loads every class of a package in a process of its own
+  `Retry-After`), and by request body when a route gives a fourth pattern; it streams
+  (`stream()`), so it can sit under Symfony's PSR-18 bridge. `Testing\MockHttp` is the same
+  over Symfony's `MockHttpClient` (symfony/http-client, suggested), every request kept as it
+  went on the wire (headers, body, `json()`, `fields()`, `dump()`). `Testing\BareTestCase` loads every class of a package in a process of its own
   and checks nothing outside it, the kernel and its requirements was loaded.
 
 ## Under a framework

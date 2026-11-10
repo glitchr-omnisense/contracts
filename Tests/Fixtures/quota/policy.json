@@ -1,0 +1,11 @@
+{
+    "$schema": "../../../resources/usage-policy.schema.json",
+    "provider": "videos",
+    "rateLimits": [
+        {"max": 10000, "window": "day", "unit": "units", "cost": {"channelVideos": 3, "live": 3, "schedule": 3, "searchVideos": 100}, "note": "Quota units, not calls."},
+        {"max": 500, "window": "minute", "every": 5, "note": "500 every 5 minutes."}
+    ],
+    "concurrency": 8,
+    "rights": {"commercial": "allowed"},
+    "provenance": {"verifiedAt": "2026-11-10"}
+}

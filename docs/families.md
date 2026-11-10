@@ -14,6 +14,7 @@ stay, each a thin subclass.
 | `Capabilities` (final readonly) | `Provider\CapabilitiesInterface` | its fields; `policy()` (given, or `UsagePolicy::described()` from older fields) |
 | `Http\JsonClient`, `Http\Data`, `Http\Redaction` (final) | `Http\*` | its exceptions through `answered()`/`unreachable()`, its Data through `data()` |
 | `Testing\RecordedHttpClient`, `RecordedResponse` (final) | `Testing\*` | its name |
+| `Http\Answer` (final constructor) | `Http\Answer`, when its raw calls need one | its name; `json(Data::class)` gives its Data |
 | `Testing\BareTestCase` (abstract) | `Testing\BareTestCase` | `coreDirs()` + its core, `AUTOLOAD_ENV` |
 | `Exception\<Family>Exception` | `Exception\ExceptionInterface` | `extends` it |
 | `Exception\UsageLimitReachedException` (final) | `Policy\UsageLimitReached` | implements the family's interface |

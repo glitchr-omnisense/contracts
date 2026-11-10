@@ -14,20 +14,24 @@ namespace Omnisense\Contracts\Policy;
  *     RateLimit-Policy: "burst";q=100;w=60,"daily";q=1000;w=86400
  *     RateLimit: "default";r=50;t=30
  *
- * Nothing else is guessed: the X-RateLimit-* fields some APIs send differ
- * from one API to the next (a reset in seconds or as a timestamp) and are
- * not read.
+ * Nothing else is guessed: the legacy fields some APIs send
+ * (X-RateLimit-Limit, -Remaining, -Reset, and the RateLimit-Limit,
+ * -Remaining, -Reset of the draft's early versions) differ from one API to
+ * the next - a reset in seconds or as a Unix time - and are read only when
+ * a provider asks, saying which (LegacyReset, Backoff::withLegacyHeaders()).
  */
 final class RateLimitHeaders
 {
     /**
      * The seconds to wait a response asks for: its Retry-After when it is a
      * 429 or a 503 (Retry-After prevails over RateLimit, the draft's section
-     * 7), else the longest t of a RateLimit item with nothing left (r=0).
+     * 7), else the longest t of a RateLimit item with nothing left (r=0) -
+     * and, when $legacy is given, of the legacy fields' reset with nothing
+     * remaining (or on a 429).
      *
      * @param array<string, string|list<string>> $headers
      */
-    public static function wait(int $status, array $headers, ?int $now = null): ?int
+    public static function wait(int $status, array $headers, ?int $now = null, ?LegacyReset $legacy = null): ?int
     {
         if (\in_array($status, [429, 503], true) && null !== $after = self::retryAfter(self::header($headers, 'retry-after'), $now)) {
             return $after;
@@ -38,8 +42,35 @@ final class RateLimitHeaders
                 $wait = max($wait ?? 0, \is_int($item['t'] ?? null) ? $item['t'] : 0);
             }
         }
+        if (null !== $legacy && null !== $old = self::legacyWait($status, $headers, $legacy, $now)) {
+            $wait = max($wait ?? 0, $old);
+        }
 
         return $wait;
+    }
+
+    /**
+     * The seconds the legacy fields ask to wait: their reset, counted as
+     * $reset says, when nothing remains (X-RateLimit-Remaining: 0, or
+     * RateLimit-Remaining) or the status is 429; null otherwise.
+     *
+     * @param array<string, string|list<string>> $headers
+     */
+    public static function legacyWait(int $status, array $headers, LegacyReset $reset, ?int $now = null): ?int
+    {
+        $remaining = self::number(self::header($headers, 'x-ratelimit-remaining') ?? self::header($headers, 'ratelimit-remaining'));
+        $at = self::number(self::header($headers, 'x-ratelimit-reset') ?? self::header($headers, 'ratelimit-reset'));
+        if (null === $at || (429 !== $status && (null === $remaining || $remaining > 0))) {
+            return null;
+        }
+
+        return max(0, (int) ceil(LegacyReset::Epoch === $reset ? $at - ($now ?? time()) : $at));
+    }
+
+    /** A field's first number ("0", "42.5", "100, 100"); null when it holds none. */
+    private static function number(?string $value): ?float
+    {
+        return null !== $value && 1 === preg_match('~^\s*(-?\d+(?:\.\d+)?)~', $value, $m) ? (float) $m[1] : null;
     }
 
     /** Retry-After's seconds: delay-seconds as they are, an HTTP-date from now; null when absent or unreadable. */

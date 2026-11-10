@@ -34,7 +34,8 @@
     },
     "suggest": {
         "phpunit/phpunit": "Testing\\: BareTestCase, the check that a package loads with what it requires alone",
-        "omnibridge/symfony": "A RateLimiterInterface over symfony/rate-limiter, so that limits count across requests and servers"
+        "omnibridge/symfony": "A RateLimiterInterface over symfony/rate-limiter, so that limits count across requests and servers",
+        "symfony/http-client": "Testing\\MockHttp: recorded answers over Symfony's MockHttpClient, every request kept as it went on the wire"
     },
     "autoload": {
         "psr-4": {

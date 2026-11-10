@@ -25,6 +25,15 @@ as data, so every site that installs your package is held to it.
      `departures`, `journeys`, `vehicles`, `stop`, `nearby`, `searchStops`, `lines`, `line`,
      `lineStops`, `stopLines`, `operators`). Map the API's endpoints onto them: Transitous'
      `/plan` is `journeys`.
+   - A window of several units is `"every"`: 500 every 5 minutes is
+     `{"max": 500, "window": "minute", "every": 5}` - not 100 a minute, which is stricter than
+     the terms and lets no burst through.
+   - A quota counted in something else than requests says its `unit` (`units`, `points`,
+     `characters`, `content-bytes`) and each operation's `cost`; an operation that makes
+     several HTTP requests under a `requests` limit has a cost too. A cost only the call knows
+     (characters translated, pages followed) is reported by the provider in the guard's
+     `amounts`.
+   - `concurrency`: the requests the terms allow in flight at once, when they say.
    - Unknown is a value: `"unknown"` for a permission, `null` for `openSourceRequired`. A site
      cannot turn it into "allowed".
    - `provenance.verifiedAt` is the day you read it. Update it each time you check again.

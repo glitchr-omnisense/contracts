@@ -28,6 +28,7 @@ final class PolicyBuilder
     private ?string $licence = null;
     private Requirements $requirements;
     private Provenance $provenance;
+    private ?int $concurrency = null;
 
     public function __construct(private readonly string $provider)
     {
@@ -47,6 +48,14 @@ final class PolicyBuilder
     public function noLimits(): self
     {
         $this->limits ??= [];
+
+        return $this;
+    }
+
+    /** The most requests the provider takes in flight at once. */
+    public function concurrency(int $max): self
+    {
+        $this->concurrency = $max;
 
         return $this;
     }
@@ -129,6 +138,7 @@ final class PolicyBuilder
             new Rights($this->commercial, $this->openSource, $this->caching, $this->storage, $this->redistribution, $this->attribution, $this->licence),
             $this->requirements,
             $this->provenance,
+            $this->concurrency,
         );
     }
 }

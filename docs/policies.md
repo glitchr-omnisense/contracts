@@ -15,8 +15,10 @@ not know is refused too, so a typo does not pass silently.
 {
     "provider": "transitous",
     "rateLimits": [
-        {"max": 720, "window": "day", "scope": "application", "operations": ["journeys"], "note": "..."}
+        {"max": 720, "window": "day", "scope": "application", "operations": ["journeys"], "note": "..."},
+        {"max": 500, "window": "minute", "every": 5}
     ],
+    "concurrency": null,
     "rights": {
         "commercial": "forbidden",
         "openSourceRequired": true,
@@ -39,6 +41,10 @@ not know is refused too, so a typo does not pass silently.
 |---|---|
 | `rateLimits` | `null`: unknown; `[]`: the terms set none; else a list of limits, **each** counted |
 | `rateLimits[].window` | `second`, `minute`, `hour`, `day`, `month` (30 days); fixed windows from their first call |
+| `rateLimits[].every` | the windows it spans, 1 by default: `{"window": "minute", "every": 5}` is 5 minutes (Trakt's 500 per 5 minutes, Graph's 10,000 per 10 minutes) |
+| `rateLimits[].unit` | what `max` counts: `requests` (default), `content-bytes`, `characters`, `units`, `points` |
+| `rateLimits[].cost` | what one call of an operation consumes, in the unit: `{"searchVideos": 100}`; 1 when not named, 0 for a free one; `null`: 1 each |
+| `concurrency` | the most requests in flight at once (IGDB: 8); `null`: not said. Declared and exported, not enforced |
 | `rateLimits[].scope` | `application` (default), `key`, `client-ip`, `user` |
 | `rateLimits[].operations` | the family's operations it counts (its contract methods: `journeys`, `departures`...); empty: all |
 | permissions (`commercial`, `storage`, `redistribution`, `caching.permission`) | `allowed`, `unknown`, `contract`, `forbidden` |
@@ -55,9 +61,12 @@ not know is refused too, so a typo does not pass silently.
 schema's shape, any part of them:
 
 - **rate limits are added**: every limit counts, so the strictest wins. A site's limit that
-  counts the same calls as a declared one (same window, scope and operations) with a higher
-  maximum is refused: it would do nothing, and it says the site expects more than it gets.
-  Where the declared limits are unknown, the site's are the only ones;
+  counts the same calls as a declared one (same window and multiple, scope, operations, unit
+  and costs) with a higher maximum is refused: it would do nothing, and it says the site
+  expects more than it gets. Only the limits the site adds are compared: a policy that already
+  carries two limits on the same calls (a provider's two figures, a site's earlier tightening)
+  can still be tightened. Where the declared limits are unknown, the site's are the only ones;
+- **concurrency only goes lower**: a site may lower it, or set it where none is declared;
 - **permissions only go stricter**, in the order `allowed` < `unknown` < `contract` <
   `forbidden`. Unknown ranks above allowed: a site cannot turn an unread term into "allowed";
   only a declaration can;
@@ -95,6 +104,55 @@ $guard->call('journeys', fn () => $provider->journeys($query));
 A family passes its own subclass of `UsageLimitReached` (`exception:`), so that its exception
 interface catches it too.
 
+### Units and costs
+
+A limit counts the provider's HTTP requests by default. One in other units says so, with what
+each operation costs:
+
+```json
+{"max": 10000, "window": "day", "unit": "units", "cost": {"channelVideos": 3, "live": 3, "schedule": 3}}
+```
+
+The guard checks, before the call, that each limit has at least the operation's cost left,
+and consumes it after. What only the call knows is reported in `amounts`, by unit; it replaces
+the cost under the limits counted in that unit:
+
+```php
+// a translation counted in characters: known before the call...
+$guard->call('translate', fn () => $deepl->translate($text), amounts: ['characters' => mb_strlen($text)]);
+// ...or billed by the provider, read from the result
+$guard->call('translate', fn () => $deepl->translate($text), amounts: fn (Translation $t) => ['characters' => $t->billed]);
+// an operation that followed three pages
+$guard->call('search', fn () => $provider->search($q), amounts: fn (Page $p) => ['requests' => $p->requests]);
+```
+
+`remaining()` gives the calls of an operation left (what each limit has left divided by its
+cost). The units follow RateLimit-Policy's `qu`: its default `requests` and its registry's
+`content-bytes`; `characters`, `units` and `points` are the providers' own (DeepL and Google
+Translation, YouTube, Twitch and GitHub GraphQL). The draft has no cost per request ("whether
+a specific request actually consumes a quota unit is implementation-specific"): `cost` is the
+policy's own field, not a header's.
+
+**Operations, not HTTP requests.** The guard counts operations; a provider's terms count HTTP
+requests. `cost` says how many requests an operation makes (`{"channelVideos": 3}` under a
+`requests` limit), and `amounts` reports a number only the call knows (pages followed). The
+kernel does not count at the HTTP layer: a limit must be checked before the operation starts
+(counting each request would refuse it halfway, its first pages spent for nothing), and the
+HTTP client knows neither the operation nor the key, client or user a scoped limit counts per.
+The provider does.
+
+A limiter that counts several units at once implements `ConsumingRateLimiterInterface`
+(`consume()`; `InMemoryRateLimiter` does). One that implements only `RateLimiterInterface`
+still counts right: the guard calls its `hit()` once per unit.
+
+### Concurrency
+
+`concurrency` is declared, tightened (only lower) and exported, not enforced: a PHP process
+makes one request at a time, so the guard has nothing to hold. An asynchronous client, or a
+semaphore shared by an application's workers (symfony/semaphore), reads
+`$policy->concurrency`. The IETF draft expresses concurrency as a quota unit
+(`concurrent-requests`); here it is its own field, since it has no window.
+
 ## The provider's own signals: `Backoff`
 
 `JsonClient` given the provider's `Backoff` calls `clear()` before each request and
@@ -109,8 +167,26 @@ interface catches it too.
   `Retry-After` prevails over `RateLimit` (the draft's section 7).
 
 A 429 throws `UsageLimitReached` with the wait asked. The wait is kept in the limiter, so every
-process sharing it waits too. The `X-RateLimit-*` fields some APIs send are not read: their
-meaning differs from one API to the next.
+process sharing it waits too.
+
+The legacy fields some APIs send - `X-RateLimit-Limit`, `-Remaining`, `-Reset`, and the
+`RateLimit-Limit`, `-Remaining`, `-Reset` of the draft's early versions (Twitch) - are not read
+by default: their reset is seconds left with some APIs and a Unix time with others. A provider
+whose API sends them opts in, saying which:
+
+```php
+new JsonClient($http, 'Twitch', $headers, $c->backoff()?->withLegacyHeaders(LegacyReset::Epoch));
+```
+
+With nothing remaining (or on a 429), the next calls wait until the reset. `Retry-After`
+still prevails on a 429 or a 503. The returned Backoff shares the guard's limiter and key.
+
+A signal that is neither (Google's `403 rateLimitExceeded`, an error code in a 200) is the
+provider's to read; `hold()` keeps the wait it decides and gives the exception to throw:
+
+```php
+throw $backoff->hold(60, 'Google answered 403 rateLimitExceeded');
+```
 
 ## Limiters
 

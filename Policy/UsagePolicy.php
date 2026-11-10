@@ -11,7 +11,10 @@ namespace Omnisense\Contracts\Policy;
  * it (tighten()), never loosen it, and a PolicyGuard enforces it.
  *
  * $rateLimits null means nobody knows them; an empty list, that the terms
- * set none.
+ * set none. $concurrency is the most requests the provider takes in flight
+ * at once (null: not said); it is declared and exported, not enforced by
+ * PolicyGuard (a PHP process makes one request at a time): an asynchronous
+ * client or a shared semaphore reads it.
  */
 final readonly class UsagePolicy
 {
@@ -30,9 +33,13 @@ final readonly class UsagePolicy
         public Rights $rights = new Rights(),
         public Requirements $requirements = new Requirements(),
         public Provenance $provenance = new Provenance(),
+        public ?int $concurrency = null,
     ) {
         if ('' === trim($provider)) {
             throw InvalidPolicyException::field('provider', 'a name', $provider);
+        }
+        if (null !== $concurrency && $concurrency < 1) {
+            throw InvalidPolicyException::field('concurrency', 'an integer of 1 or more, or null', $concurrency);
         }
         $this->rateLimits = $rateLimits;
     }
@@ -69,7 +76,7 @@ final readonly class UsagePolicy
     /** @param array<string, mixed> $data */
     public static function fromArray(array $data): self
     {
-        Read::only($data, ['$schema', 'provider', 'rateLimits', 'rights', 'requirements', 'provenance'], '(root)');
+        Read::only($data, ['$schema', 'provider', 'rateLimits', 'concurrency', 'rights', 'requirements', 'provenance'], '(root)');
         $provider = Read::string($data['provider'] ?? null, 'provider') ?? throw InvalidPolicyException::field('provider', 'a name', null);
         $limits = null;
         if (null !== ($data['rateLimits'] ?? null)) {
@@ -88,6 +95,7 @@ final readonly class UsagePolicy
             Rights::fromArray(Read::object($data['rights'] ?? null, 'rights')),
             Requirements::fromArray(Read::object($data['requirements'] ?? null, 'requirements')),
             Provenance::fromArray(Read::object($data['provenance'] ?? null, 'provenance')),
+            Read::int($data['concurrency'] ?? null, 'concurrency', 1),
         );
     }
 
@@ -112,7 +120,7 @@ final readonly class UsagePolicy
     /** The same policy under another provider's name. */
     public function named(string $provider): self
     {
-        return new self($provider, $this->rateLimits, $this->rights, $this->requirements, $this->provenance);
+        return new self($provider, $this->rateLimits, $this->rights, $this->requirements, $this->provenance, $this->concurrency);
     }
 
     public function knowsLimits(): bool
@@ -128,20 +136,24 @@ final readonly class UsagePolicy
 
     /**
      * The policy a site's configuration makes of this one: its rate limits
-     * added to the provider's (each counts: the strictest wins), its rights
-     * and requirements laid over them - only where they are stricter. A
-     * looser value (a higher maximum for the same count, a longer time to
-     * live, caching allowed where it was not, an attribution dropped or
-     * rewritten, a requirement lifted) throws InvalidPolicyException:
-     * what a provider declares, a site cannot undo.
+     * added to the provider's (each counts: the strictest wins), its
+     * concurrency, rights and requirements laid over them - only where they
+     * are stricter. A looser value (a site's limit with a higher maximum for
+     * the same count as a declared one, more requests in flight, a longer
+     * time to live, caching allowed where it was not, an attribution dropped
+     * or rewritten, a requirement lifted) throws InvalidPolicyException:
+     * what a provider declares, a site cannot undo. Only the limits the site
+     * adds are compared with the declared ones: a policy may carry two
+     * limits on the same calls (a site's earlier tightening, a provider's
+     * two figures), and stays tightenable.
      *
-     * @param array<string, mixed> $site rateLimits, rights, requirements - in the schema's shape, any part of it
+     * @param array<string, mixed> $site rateLimits, concurrency, rights, requirements - in the schema's shape, any part of it
      */
     public function tighten(array $site): self
     {
         foreach (array_keys($site) as $key) {
-            if (!\in_array($key, ['rateLimits', 'rights', 'requirements'], true)) {
-                throw InvalidPolicyException::field((string) $key, 'absent: a site tightens rateLimits, rights and requirements only', $site[$key]);
+            if (!\in_array($key, ['rateLimits', 'concurrency', 'rights', 'requirements'], true)) {
+                throw InvalidPolicyException::field((string) $key, 'absent: a site tightens rateLimits, concurrency, rights and requirements only', $site[$key]);
             }
         }
         if ([] === $site) {
@@ -155,6 +167,9 @@ final readonly class UsagePolicy
             }
             $merged['rateLimits'] = [...($this->rateLimits ? array_map(static fn (RateLimit $limit) => $limit->toArray(), $this->rateLimits) : []), ...$limits];
         }
+        if (null !== ($site['concurrency'] ?? null)) {
+            $merged['concurrency'] = $site['concurrency'];
+        }
         $rights = Read::object($site['rights'] ?? null, 'rights');
         $mergedRights = array_replace_recursive($this->rights->toArray(), $rights);
         $where = Read::strings(Read::object($rights['attribution'] ?? null, 'rights.attribution')['where'] ?? null, 'rights.attribution.where');
@@ -165,7 +180,7 @@ final readonly class UsagePolicy
         $merged['requirements'] = array_replace_recursive($this->requirements->toArray(), Read::object($site['requirements'] ?? null, 'requirements'));
 
         $tightened = self::fromArray($merged);
-        $this->assertNotLoosenedBy($tightened);
+        $this->assertNotLoosenedBy($tightened, \array_slice($tightened->rateLimits ?? [], \count($this->rateLimits ?? [])));
 
         return $tightened;
     }
@@ -197,6 +212,7 @@ final readonly class UsagePolicy
         return [
             'provider' => $this->provider,
             'rateLimits' => null === $this->rateLimits ? null : array_map(static fn (RateLimit $limit) => $limit->toArray(), $this->rateLimits),
+            'concurrency' => $this->concurrency,
             'rights' => $this->rights->toArray(),
             'requirements' => $this->requirements->toArray(),
             'provenance' => $this->provenance->toArray(),
@@ -208,15 +224,19 @@ final readonly class UsagePolicy
         return json_encode($this->toArray(), \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR)."\n";
     }
 
-    private function assertNotLoosenedBy(self $tightened): void
+    /** @param list<RateLimit> $added the site's limits */
+    private function assertNotLoosenedBy(self $tightened, array $added): void
     {
         $loosened = fn (string $field, string $declared, string $given) => InvalidPolicyException::loosened($this->provider, $field, $declared, $given);
-        foreach ($tightened->rateLimits ?? [] as $limit) {
+        foreach ($added as $limit) {
             foreach ($this->rateLimits ?? [] as $declared) {
                 if ($limit->sameCountAs($declared) && $limit->max > $declared->max) {
                     throw $loosened('rate limit', $declared->describe(), $limit->describe());
                 }
             }
+        }
+        if (null !== $this->concurrency && (null === $tightened->concurrency || $tightened->concurrency > $this->concurrency)) {
+            throw $loosened('concurrency', $this->concurrency.' in flight', null === $tightened->concurrency ? 'no maximum' : $tightened->concurrency.' in flight');
         }
         $old = $this->rights;
         $new = $tightened->rights;

@@ -16,6 +16,7 @@
                 {"type": "array", "items": {"$ref": "#/$defs/rateLimit"}}
             ]
         },
+        "concurrency": {"type": ["integer", "null"], "minimum": 1, "description": "The most requests the provider takes in flight at once (IGDB: 8); null or absent: not said. Declared and exported; PolicyGuard does not enforce it (a PHP process makes one request at a time). A site may lower it, not raise it."},
         "rights": {
             "type": "object",
             "additionalProperties": false,
@@ -82,8 +83,11 @@
             "properties": {
                 "max": {"type": "integer", "minimum": 0},
                 "window": {"enum": ["second", "minute", "hour", "day", "month"]},
+                "every": {"type": "integer", "minimum": 1, "default": 1, "description": "The windows it spans: {\"window\": \"minute\", \"every\": 5} is 5 minutes."},
                 "scope": {"enum": ["application", "key", "client-ip", "user"], "default": "application"},
                 "operations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}, "description": "The family's operations it counts (its contract methods: \"journeys\", \"departures\"); empty: every one."},
+                "unit": {"enum": ["requests", "content-bytes", "characters", "units", "points"], "default": "requests", "description": "What max counts: the provider's HTTP requests (the default, as RateLimit-Policy's quota unit), content bytes (the draft's other unit), or the provider's own units - characters (translation APIs), quota units (YouTube), points (Twitch, GitHub GraphQL)."},
+                "cost": {"type": ["object", "null"], "additionalProperties": {"type": "integer", "minimum": 0}, "propertyNames": {"minLength": 1}, "description": "What one call of an operation consumes, in the unit, by operation; 1 for an operation not named, 0 for a free one; null or absent: each costs 1. A cost only the call knows (characters translated) is reported by the provider (PolicyGuard::call()'s amounts)."},
                 "note": {"type": ["string", "null"]}
             }
         }

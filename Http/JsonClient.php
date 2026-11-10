@@ -26,13 +26,19 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * UsageLimitReached with the wait asked, a RateLimit with nothing left
  * holds the next calls until its window ends.
  *
+ * An empty body (a 204, a 304) reads as an empty Data; decode() is the hook
+ * for a body read otherwise. raw() makes the calls whose answer is not JSON
+ * or whose headers matter (CalDAV's XML, an ETag), with the same rules, and
+ * gives the status, the headers, the body and the URL that answered. A
+ * header may carry several values (a list: Prefer's preferences).
+ *
  * A family names it its own (final class JsonClient extends this one) and
  * throws its own exceptions through answered() and unreachable(), its own
  * Data through data().
  */
 class JsonClient
 {
-    /** @param array<string, string> $headers sent with every request */
+    /** @param array<string, string|list<string>> $headers sent with every request */
     public function __construct(
         private readonly HttpClientInterface $http,
         protected readonly string $provider,
@@ -60,13 +66,24 @@ class JsonClient
      */
     public function request(string $method, string $url, array $options = [], array $headers = []): ?Data
     {
-        $body = $this->send($method, $url, $options, $headers);
-        if (null === $body) {
-            return null;
-        }
-        $data = json_decode($body, true);
+        $answer = $this->exchange($method, $url, $options, $headers, [404]);
 
-        return \is_array($data) ? $this->data($data) : throw Redaction::withoutArguments($this->answered($method.' '.(parse_url($url, \PHP_URL_PATH) ?: '/'), 200, 'The body is not JSON.'));
+        return 404 === $answer->status ? null : $this->decode($answer->body, $method.' '.(parse_url($url, \PHP_URL_PATH) ?: '/'), $answer->status);
+    }
+
+    /**
+     * Any call, its answer as it came: the status, the headers, the body
+     * (XML, empty, anything), the URL that answered after redirects. The
+     * same errors as request() but for the statuses in $pass, given back
+     * (a 404 read as "not there", a 412 as "changed meanwhile").
+     *
+     * @param array<string, mixed>               $options json, body or query, as Symfony's HttpClient takes them
+     * @param array<string, string|list<string>> $headers
+     * @param list<int>                          $pass    error statuses given back instead of thrown
+     */
+    public function raw(string $method, string $url, array $options = [], array $headers = [], array $pass = [404]): Answer
+    {
+        return $this->exchange($method, $url, $options, $headers, $pass);
     }
 
     /**
@@ -80,7 +97,9 @@ class JsonClient
      */
     public function bytes(string $url, array $query = [], array $headers = []): ?string
     {
-        return $this->send('GET', $url, ['query' => array_filter($query, static fn ($value) => null !== $value)], $headers);
+        $answer = $this->exchange('GET', $url, ['query' => array_filter($query, static fn ($value) => null !== $value)], $headers, [404]);
+
+        return 404 === $answer->status ? null : $answer->body;
     }
 
     /**
@@ -110,6 +129,22 @@ class JsonClient
         return new Data($data);
     }
 
+    /**
+     * A successful answer's body as Data: an empty body (a 204, a 304) as an
+     * empty Data, JSON as its values; anything else is the provider's error.
+     * A family overrides it for a body read otherwise (NDJSON, a JSON
+     * string).
+     */
+    protected function decode(string $body, string $what, int $status): Data
+    {
+        if ('' === trim($body)) {
+            return $this->data([]);
+        }
+        $data = json_decode($body, true);
+
+        return \is_array($data) ? $this->data($data) : throw Redaction::withoutArguments($this->answered($what, 200, 'The body is not JSON.'));
+    }
+
     /** The provider answered an error status, or a body that is not JSON ($status 200). */
     protected function answered(string $what, int $status, string $detail): \Throwable
     {
@@ -122,10 +157,11 @@ class JsonClient
     }
 
     /**
-     * @param array<string, mixed>  $options
-     * @param array<string, string> $headers
+     * @param array<string, mixed>               $options
+     * @param array<string, string|list<string>> $headers
+     * @param list<int>                          $pass
      */
-    private function send(string $method, string $url, array $options, array $headers): ?string
+    private function exchange(string $method, string $url, array $options, array $headers, array $pass): Answer
     {
         $what = $method.' '.(parse_url($url, \PHP_URL_PATH) ?: '/');
         $options = ['headers' => $headers + $this->headers] + $options;
@@ -134,20 +170,23 @@ class JsonClient
             $this->backoff?->clear();
             $response = $this->http->request($method, $url, $options);
             $status = $response->getStatusCode();
-            $this->backoff?->observe($status, $response->getHeaders(false));
-            if (404 === $status) {
-                return null;
-            }
+            $received = $response->getHeaders(false);
+            $this->backoff?->observe($status, $received);
             $body = $response->getContent(false);
+            $final = $response->getInfo('url');
         } catch (UsageLimitReached $e) {
             throw Redaction::withoutArguments($e);
         } catch (ExceptionInterface $e) {
             throw Redaction::withoutArguments($this->unreachable(\sprintf('%s could not be reached for %s: %s', $this->provider, $what, Redaction::text(self::reason($e->getMessage()), $secrets)), Redaction::copy($e, $secrets)));
         }
-        if ($status >= 400) {
+        if ($status >= 400 && !\in_array($status, $pass, true)) {
             throw Redaction::withoutArguments($this->answered($what, $status, Redaction::text($body, $secrets)));
         }
+        $lower = [];
+        foreach ($received as $name => $values) {
+            $lower[strtolower($name)] = array_map('strval', $values);
+        }
 
-        return $body;
+        return new Answer($status, $lower, $body, \is_string($final) && '' !== $final ? $final : $url);
     }
 }

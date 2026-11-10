@@ -8,9 +8,9 @@ here, once:
 | Namespace | What | Kind |
 |---|---|---|
 | `Omnisense\Contracts\Provider\` | `ProviderInterface`, `CapabilitiesInterface`, `ProviderFactoryInterface`; `Config`, `ProviderFactory`, `Registry` | interfaces first, small bases |
-| `Omnisense\Contracts\Http\` | `JsonClient` (JSON and binary calls, 404 read as null, credentials kept out of every error), `Data`, `Redaction` | small implementations |
+| `Omnisense\Contracts\Http\` | `JsonClient` (JSON, binary and raw calls, 404 read as null, an empty body as an empty Data, credentials kept out of every error), `Answer`, `Data`, `Redaction` | small implementations |
 | `Omnisense\Contracts\Policy\` | `UsagePolicy` and its parts, `PolicyBuilder`, the JSON Schema; `PolicyGuard`, `Backoff`, `RateLimiterInterface`, `InMemoryRateLimiter`, `UsageLimitReached`; `RateLimitHeaders`; `PolicyExport` | value objects, one guard |
-| `Omnisense\Contracts\Testing\` | `RecordedHttpClient`, `RecordedResponse`, `BareTestCase` | test support |
+| `Omnisense\Contracts\Testing\` | `RecordedHttpClient` (streams, routes by body), `RecordedResponse`, `MockHttp` (over Symfony's MockHttpClient), `BareTestCase` | test support |
 | `Omnisense\Contracts\Exception\` | `ExceptionInterface` (a family's exception interface extends it) and the generic exceptions | |
 
 It requires PHP 8.2 and `symfony/http-client-contracts` (interfaces only), nothing else.

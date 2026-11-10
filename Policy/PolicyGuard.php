@@ -16,6 +16,17 @@ namespace Omnisense\Contracts\Policy;
  * A limit scoped per key counts per $context['key'], per client address per
  * $context['ip'], per user per $context['user']; one not given counts in
  * a shared bucket.
+ *
+ * A call consumes, under each limit, the limit's cost for the operation (1
+ * unless the policy says otherwise: 3 quota units, 2 HTTP requests). What
+ * only the call knows is reported in $amounts, by unit: the characters of a
+ * text to translate before the call, or those the provider billed after it
+ * (a closure of the result):
+ *
+ *   $guard->call('translate', fn () => $deepl->translate($text), amounts: ['characters' => mb_strlen($text)]);
+ *   $guard->call('translate', fn () => $deepl->translate($text), amounts: fn (Translation $t) => ['characters' => $t->billed]);
+ *
+ * A failed call consumes its cost, or the amounts given before it.
  */
 final class PolicyGuard
 {
@@ -45,51 +56,75 @@ final class PolicyGuard
     /**
      * @template T
      *
-     * @param callable(): T                                  $call
-     * @param array{key?: string, ip?: string, user?: string} $context
+     * @param callable(): T                                        $call
+     * @param array{key?: string, ip?: string, user?: string}       $context
+     * @param array<string, int>|\Closure(T): array<string, int>   $amounts by unit ("characters", "units", "requests"): what the call consumes in place of the cost; a closure reads it from the result
      *
      * @return T
      */
-    public function call(string $operation, callable $call, array $context = []): mixed
+    public function call(string $operation, callable $call, array $context = [], array|\Closure $amounts = []): mixed
     {
-        $this->check($operation, $context);
+        $before = \is_array($amounts) ? $amounts : [];
+        $this->check($operation, $context, $before);
+        $after = $before;
         try {
-            return $call();
+            $result = $call();
+            if ($amounts instanceof \Closure) {
+                $after = $amounts($result);
+            }
+
+            return $result;
         } finally {
-            $this->record($operation, $context);
+            $this->record($operation, $context, $after);
         }
     }
 
     /**
-     * Throws UsageLimitReached when the operation may not be called now.
+     * Throws UsageLimitReached when the operation may not be called now: a
+     * limit has less left than the call consumes.
      *
      * @param array{key?: string, ip?: string, user?: string} $context
+     * @param array<string, int>                              $amounts by unit, in place of the cost
      */
-    public function check(string $operation, array $context = []): void
+    public function check(string $operation, array $context = [], array $amounts = []): void
     {
         $this->backoff->clear();
         foreach ($this->policy->limitsFor($operation) as $limit) {
+            $need = self::consumed($limit, $operation, $amounts);
+            if (0 === $need) {
+                continue;
+            }
             $allowance = $this->limiter->allowance($this->key($limit, $context), $limit);
-            if ($allowance->exhausted()) {
+            if ($allowance->remaining < $need) {
                 throw new ($this->exception)(\sprintf('%s\'s usage policy allows %s: reached, try again in %d s.', $this->policy->provider, $limit->describe(), $allowance->resetsIn), $allowance->resetsIn, $this->policy->provider, $limit);
             }
         }
     }
 
     /**
-     * One call of the operation counted.
+     * One call of the operation counted: under each limit, its cost or the
+     * amount given in its unit.
      *
      * @param array{key?: string, ip?: string, user?: string} $context
+     * @param array<string, int>                              $amounts by unit, in place of the cost
      */
-    public function record(string $operation, array $context = []): void
+    public function record(string $operation, array $context = [], array $amounts = []): void
     {
         foreach ($this->policy->limitsFor($operation) as $limit) {
-            $this->limiter->hit($this->key($limit, $context), $limit);
+            $amount = self::consumed($limit, $operation, $amounts);
+            if ($this->limiter instanceof ConsumingRateLimiterInterface) {
+                $this->limiter->consume($this->key($limit, $context), $limit, $amount);
+                continue;
+            }
+            for ($i = 0; $i < $amount; ++$i) {
+                $this->limiter->hit($this->key($limit, $context), $limit);
+            }
         }
     }
 
     /**
-     * The calls of an operation left before a limit is reached; null when no
+     * The calls of an operation left before a limit is reached (what is
+     * left of each limit divided by the operation's cost); null when no
      * limit counts it.
      *
      * @param array{key?: string, ip?: string, user?: string} $context
@@ -98,7 +133,11 @@ final class PolicyGuard
     {
         $remaining = null;
         foreach ($this->policy->limitsFor($operation) as $limit) {
-            $left = $this->limiter->allowance($this->key($limit, $context), $limit)->remaining;
+            $cost = $limit->cost($operation);
+            if (0 === $cost) {
+                continue;
+            }
+            $left = intdiv(max(0, $this->limiter->allowance($this->key($limit, $context), $limit)->remaining), $cost);
             $remaining = null === $remaining ? $left : min($remaining, $left);
         }
 
@@ -118,6 +157,12 @@ final class PolicyGuard
     public function mayCache(): bool
     {
         return 0 !== $this->cacheTtl();
+    }
+
+    /** @param array<string, int> $amounts */
+    private static function consumed(RateLimit $limit, string $operation, array $amounts): int
+    {
+        return max(0, $amounts[$limit->unit->value] ?? $limit->cost($operation));
     }
 
     /** @param array{key?: string, ip?: string, user?: string} $context */
