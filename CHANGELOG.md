@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+Writes sent once (backward compatible: nothing calls it until a family does).
+
+- `Http\NoRetry`: the HTTP client a factory is given, kept from replaying a request. Symfony's
+  `RetryableHttpClient` (`framework.http_client`'s `retry_failed`) resends a POST answered 423,
+  425, 429, 502 or 503 with its default strategy. `of()` (the default) turns every retry off,
+  reads included: a 429 must reach the provider's Backoff, and a retry is a request the guard
+  never counted. `forWrites()` keeps the application's retries for GET, HEAD and OPTIONS only
+  (`Http\RetriedReads`). Through `withOptions(['max_retries' => 0])`, across Symfony's decorators,
+  no reflection; a `MockHttpClient` or a `RecordedHttpClient` is kept as given (the same
+  instance), and one under decorators is not copied (`Http\SentOnce`: `max_retries` 0 per
+  request), so `getRequestsCount()` still counts. `isTestClient()`. symfony/http-client stays
+  optional; the option needs 6.4 or later. docs/families.md (Writes sent once).
+  Tests/Http/NoRetryTest: a POST answered 503 then 200 sent once over a real
+  `RetryableHttpClient`, a GET sent once by `of()` and retried by `forWrites()`.
+
 What thirteen families' migrations asked for next (round 3). Every policy.json written so far
 reads as before; `toArray()` writes `plans`, `plan` and `rights.retention` only when they are
 set, so a policy without them writes what it always did.
