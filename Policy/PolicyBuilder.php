@@ -29,6 +29,8 @@ final class PolicyBuilder
     private Requirements $requirements;
     private Provenance $provenance;
     private ?int $concurrency = null;
+    private ?Retention $retention = null;
+    private ?Plans $plans = null;
 
     public function __construct(private readonly string $provider)
     {
@@ -102,6 +104,22 @@ final class PolicyBuilder
         return $this;
     }
 
+    /** How long the data may be kept at most, and what that covers. */
+    public function retention(Retention $retention): self
+    {
+        $this->retention = $retention;
+
+        return $this;
+    }
+
+    /** The plans the provider publishes limits for; the limits given with limit() and concurrency() are the default plan's. */
+    public function plans(Plans $plans): self
+    {
+        $this->plans = $plans;
+
+        return $this;
+    }
+
     public function licence(string $licence): self
     {
         $this->licence = $licence;
@@ -135,10 +153,11 @@ final class PolicyBuilder
         return new UsagePolicy(
             $this->provider,
             $this->limits,
-            new Rights($this->commercial, $this->openSource, $this->caching, $this->storage, $this->redistribution, $this->attribution, $this->licence),
+            new Rights($this->commercial, $this->openSource, $this->caching, $this->storage, $this->redistribution, $this->attribution, $this->licence, $this->retention),
             $this->requirements,
             $this->provenance,
             $this->concurrency,
+            $this->plans,
         );
     }
 }

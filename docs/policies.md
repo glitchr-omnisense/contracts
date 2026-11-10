@@ -54,6 +54,31 @@ not know is refused too, so a typo does not pass silently.
 | `requirements.userAgent.pattern` | a PCRE with its delimiters; `Requirements::USER_AGENT_WITH_CONTACT` is the usual one |
 | `provenance.verifiedAt` | `YYYY-MM-DD`: the day someone read the policy against its source |
 | `provenance.declaredBy` | `maintainer`, `provider`, `site` |
+| `rights.retention` | `{"maxAge": seconds, "covers": "..."}`: how long the data may be kept at all; `null`/absent: not said |
+| `plans` | `{"default": "free", "plans": {"<name>": {rateLimits?, concurrency?, source, verifiedAt, note?}}}`: the limits per plan; the top-level ones are the default plan's |
+| `plan` | the plan a policy runs under, written by `forPlan()`; never in a declaration |
+
+## Plans
+
+A provider whose limits depend on the plan subscribed (Firecrawl, DeepL, Azure...) declares
+them in `plans`. `fromArray()` refuses a default that is not declared and top-level
+`rateLimits` or `concurrency` other than the default plan's (compared by what they count, not
+by their notes): a reader that knows nothing of plans reads the free plan.
+
+```php
+$pro = $policy->forPlan('pro');   // the plan's limits and concurrency; provenance policy/verifiedAt = the plan's source/date
+$pro->plan;                       // "pro"; $pro->plans is null
+$policy->forPlan(null);           // the default plan
+$policy->forPlan('gold');         // InvalidPolicyException: No "gold" plan; declared: free, pro.
+```
+
+A plan that names no `rateLimits` (or no `concurrency`) keeps the policy's. Rights,
+requirements and terms are the provider's whatever the plan. A site names its plan with the
+`plan` option (beside `policy` and `usage`); `ProviderFactory::effectivePolicy()` applies it
+**before** `tighten()`, so a site only tightens the plan it runs, and `tighten()` on a
+declaration with plans tightens its default plan. A `plan` for a provider without plans is
+refused. The export carries the plans; during the transition, a package whose plans are still
+a file of their own names it in `extra.omnisense.plans` and the export puts it in the policy.
 
 ## The merge rule: a site only tightens
 
@@ -74,7 +99,10 @@ schema's shape, any part of them:
 - **open source, the attribution, a key, a User-Agent**: once required, they stay required;
   the attribution's text and link, the licence and the User-Agent pattern cannot be rewritten
   once declared; places to credit are added;
-- **provenance and the provider's name** are the declaration's: a site giving them is refused.
+- **retention only gets shorter**: a site may set one where none is declared, shorten it,
+  never lift it nor change what it `covers`;
+- **provenance and the provider's name** are the declaration's: a site giving them is refused;
+  the plan is not a tightening but the `plan` option, applied first.
 
 Anything looser throws `InvalidPolicyException` (an `InvalidConfigException`), naming the field,
 the declared value and the one asked.
@@ -144,6 +172,49 @@ The provider does.
 A limiter that counts several units at once implements `ConsumingRateLimiterInterface`
 (`consume()`; `InMemoryRateLimiter` does). One that implements only `RateLimiterInterface`
 still counts right: the guard calls its `hit()` once per unit.
+
+### Requests inside an operation
+
+The registry's guard counts an operation once, when it is called. Two kinds of requests happen
+inside one, where it cannot see them:
+
+- **a token request** (OAuth client credentials renewed in the middle of a listing): the
+  provider wraps it in `call('token', ...)`, an operation of its own, which a limit names;
+- **the pages of a lazily paged listing** (DNS records, events, attendees): the operation
+  returns a generator, so the registry's `call()` returns before the first page is even fetched,
+  and counts once. The provider reports each further page to a guard **before** it is sent:
+
+```php
+// the factory
+return new ExampleProvider($client, $c->guard(UsagePolicy::fromFile(ExampleProvider::POLICY)));
+
+// the provider
+public function records(string $zone): \Generator
+{
+    $url = '/zones/'.$zone.'/records';
+    for ($page = 1; null !== $url; ++$page) {
+        $fetch = fn () => $this->client->get($url);
+        $data = 1 === $page ? $fetch() : $this->guard->call('records', $fetch);   // the first is the registry's
+        yield from $data->list('result');
+        $url = $data->string('next');
+    }
+}
+```
+
+`Config::guard()` runs the policy given under the site's `plan` and `policy` options, as the
+registry's guard does, in the same limiter (the registry's; outside a registry, the one the
+factory built, which `create()` now keeps in the Config) with the provider's Backoff, and
+throws the family's exception (the Backoff's). Both guards count under the same limit
+keys, so a limit of 3 requests a day lets three pages through and refuses the fourth before
+it is requested - the pages already read are kept, the iteration stops with
+`UsageLimitReached`.
+
+Why the provider reports, and nothing new in the guard: the guard already checks before and
+counts after (`call()`); what was missing is a guard the provider holds that shares the
+registry's counts. A wrapper over the returned iterable cannot know where pages begin (items
+are not requests), and `amounts: ['requests' => n]` needs n before the call or from its result,
+which a lazy listing has neither. A limit scoped per key, client or user needs the provider to
+pass that `context` too; the registry's typed accessors pass none today.
 
 ### Concurrency
 

@@ -8,6 +8,8 @@ use Omnisense\Contracts\Policy\InvalidPolicyException;
 use Omnisense\Contracts\Policy\Permission;
 use Omnisense\Contracts\Policy\PolicyExport;
 use Omnisense\Contracts\Policy\RateLimit;
+use Omnisense\Contracts\Policy\Retention;
+use Omnisense\Contracts\Policy\Rights;
 use Omnisense\Contracts\Policy\Requirements;
 use Omnisense\Contracts\Policy\Scope;
 use Omnisense\Contracts\Policy\Usage;
@@ -99,8 +101,13 @@ final class UsagePolicyTest extends TestCase
         self::assertSame(array_map(static fn (Window $w) => $w->value, Window::cases()), self::at($schema, '$defs', 'rateLimit', 'properties', 'window', 'enum'));
         self::assertSame(array_map(static fn (Scope $s) => $s->value, Scope::cases()), self::at($schema, '$defs', 'rateLimit', 'properties', 'scope', 'enum'));
         self::assertSame(array_map(static fn (DeclaredBy $d) => $d->value, DeclaredBy::cases()), self::at($schema, 'properties', 'provenance', 'properties', 'declaredBy', 'enum'));
-        self::assertSame(array_keys(UsagePolicy::unknown('x')->toArray()), array_values(array_diff(array_keys(self::at($schema, 'properties')), ['$schema'])));
-        self::assertSame(array_keys(UsagePolicy::unknown('x')->rights->toArray()), array_keys(self::at($schema, 'properties', 'rights', 'properties')));
+        $written = static function (array $keys): array {
+            sort($keys);
+
+            return $keys;
+        };
+        self::assertSame($written([...array_keys(UsagePolicy::unknown('x')->toArray()), 'plans', 'plan']), $written(array_values(array_diff(array_keys(self::at($schema, 'properties')), ['$schema']))), 'plans and plan are written only when set');
+        self::assertSame(array_keys((new Rights(retention: new Retention(1)))->toArray()), array_keys(self::at($schema, 'properties', 'rights', 'properties')));
         self::assertSame(array_keys(UsagePolicy::unknown('x')->provenance->toArray()), array_keys(self::at($schema, 'properties', 'provenance', 'properties')));
         self::assertSame(array_keys(RateLimit::perDay(1)->toArray()), array_keys(self::at($schema, '$defs', 'rateLimit', 'properties')));
     }

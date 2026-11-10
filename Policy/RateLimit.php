@@ -136,13 +136,13 @@ final readonly class RateLimit
             .(Unit::Requests === $this->unit ? '' : '/'.$this->unit->value).('' === $costs ? '' : '/'.$costs);
     }
 
-    /** "720 a day for journeys", "500 every 5 minutes", "10000 units a day (live costs 3)" */
+    /** "720 a day for journeys", "1200 an hour", "500 every 5 minutes", "10000 units a day (live costs 3)" */
     public function describe(): string
     {
         $costs = implode(', ', array_map(static fn (string $operation, int $amount) => $operation.' costs '.$amount, array_keys($this->cost), $this->cost));
 
         return $this->max.(Unit::Requests === $this->unit ? '' : ' '.$this->unit->value)
-            .(1 === $this->every ? ' a '.$this->window->value : ' every '.$this->every.' '.$this->window->value.'s')
+            .(1 === $this->every ? (Window::Hour === $this->window ? ' an ' : ' a ').$this->window->value : ' every '.$this->every.' '.$this->window->value.'s')
             .([] === $this->operations ? '' : ' for '.implode(', ', $this->operations))
             .(Scope::Application === $this->scope ? '' : ' per '.$this->scope->value)
             .('' === $costs ? '' : ' ('.$costs.')');

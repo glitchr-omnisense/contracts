@@ -34,6 +34,22 @@ as data, so every site that installs your package is held to it.
      (characters translated, pages followed) is reported by the provider in the guard's
      `amounts`.
    - `concurrency`: the requests the terms allow in flight at once, when they say.
+   - **Plans**: when the limits depend on the plan the site subscribed to (Free, Pro, S1...),
+     declare each plan the provider publishes figures for under `plans`, with the page you read
+     them on (`source`) and the day (`verifiedAt`). `default` is the free or most restrictive
+     plan, and your top-level `rateLimits` and `concurrency` are its figures, so that the policy
+     reads the same where plans are not known. A plan that publishes no figure is not declared.
+     Sites pick theirs with the factory's `plan` option.
+
+     ```json
+     "plans": {"default": "free", "plans": {
+         "free": {"rateLimits": [{"max": 500000, "window": "month", "unit": "characters"}], "source": "https://...", "verifiedAt": "2026-11-10"},
+         "pro": {"rateLimits": [], "source": "https://...", "verifiedAt": "2026-11-10", "note": "Billed per character, no cap."}
+     }}
+     ```
+   - `rights.retention`: how long the terms let a site keep the data at all (`maxAge` in
+     seconds, `covers` what it applies to, in the terms' words): DossierFacile's three months,
+     YouTube's 30 days. Not `caching.maxTtl`, which is how long an answer may be served again.
    - Unknown is a value: `"unknown"` for a permission, `null` for `openSourceRequired`. A site
      cannot turn it into "allowed".
    - `provenance.verifiedAt` is the day you read it. Update it each time you check again.
@@ -45,7 +61,8 @@ as data, so every site that installs your package is held to it.
 4. **Give it to the family**: have your provider implement `DeclaresUsagePolicyInterface`
    (`usagePolicy(): UsagePolicy`, read once from the file), and pass it to its Capabilities
    (`policy:`). Pass the factory's `Config::backoff()` to your `JsonClient`, so that 429s and
-   `Retry-After` are honoured.
+   `Retry-After` are honoured. A token request, or each further page of a listing paged
+   lazily, goes through `Config::guard()` (policies.md, "Requests inside an operation").
 5. **Test it**: the declared figures, a limit reached through the registry (no request goes out),
    a 429 with its `Retry-After` honoured, a looser site configuration refused. omnitravel/transitous'
    `Tests/PolicyTest.php` is the model.

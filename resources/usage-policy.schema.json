@@ -17,6 +17,18 @@
             ]
         },
         "concurrency": {"type": ["integer", "null"], "minimum": 1, "description": "The most requests the provider takes in flight at once (IGDB: 8); null or absent: not said. Declared and exported; PolicyGuard does not enforce it (a PHP process makes one request at a time). A site may lower it, not raise it."},
+        "plans": {
+            "type": "object",
+            "required": ["default", "plans"],
+            "additionalProperties": false,
+            "description": "The plans the provider publishes limits for (Free, Pro, S1...). The policy's own rateLimits and concurrency must be the default plan's, where it names them. The factory's \"plan\" option picks one (UsagePolicy::forPlan()): its rateLimits and concurrency replace the policy's, its source and verifiedAt become the provenance's policy and verifiedAt; rights, requirements and terms stay the provider's. A site may then only tighten it.",
+            "properties": {
+                "$schema": {"type": "string"},
+                "default": {"type": "string", "minLength": 1, "description": "The plan that applies when the site names none: the free or most restrictive one. It must be among the plans."},
+                "plans": {"type": "object", "minProperties": 1, "propertyNames": {"minLength": 1}, "additionalProperties": {"$ref": "#/$defs/plan"}}
+            }
+        },
+        "plan": {"type": ["string", "null"], "description": "The plan a policy runs under, written by UsagePolicy::forPlan() (a site's effective policy, an export of it); a declaration leaves it out. Never beside plans."},
         "rights": {
             "type": "object",
             "additionalProperties": false,
@@ -43,7 +55,17 @@
                         "where": {"type": "array", "uniqueItems": true, "items": {"enum": ["display", "map", "credits", "source"]}}
                     }
                 },
-                "licence": {"type": ["string", "null"], "description": "The data's licence, as SPDX names it where it can."}
+                "licence": {"type": ["string", "null"], "description": "The data's licence, as SPDX names it where it can."},
+                "retention": {
+                    "type": ["object", "null"],
+                    "required": ["maxAge"],
+                    "additionalProperties": false,
+                    "description": "How long the terms let a site keep the data at all (a stored copy, a database row), unlike caching.maxTtl (how long an answer may be served again). null or absent: the terms set none, or nobody read one. A site may shorten it, never lengthen it nor change what it covers.",
+                    "properties": {
+                        "maxAge": {"type": "integer", "minimum": 0, "description": "Seconds: 90 days is 7776000."},
+                        "covers": {"type": ["string", "null"], "description": "What it applies to, as the terms say it."}
+                    }
+                }
             }
         },
         "requirements": {
@@ -76,6 +98,18 @@
     },
     "$defs": {
         "permission": {"enum": ["allowed", "unknown", "contract", "forbidden"]},
+        "plan": {
+            "type": "object",
+            "required": ["source", "verifiedAt"],
+            "additionalProperties": false,
+            "properties": {
+                "rateLimits": {"type": ["array", "null"], "items": {"$ref": "#/$defs/rateLimit"}, "description": "null or absent: the policy's."},
+                "concurrency": {"type": ["integer", "null"], "minimum": 1, "description": "null or absent: the policy's."},
+                "source": {"type": "string", "minLength": 1, "description": "Where the provider publishes the plan's limits."},
+                "verifiedAt": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+                "note": {"type": ["string", "null"]}
+            }
+        },
         "rateLimit": {
             "type": "object",
             "required": ["max", "window"],

@@ -15,6 +15,11 @@ namespace Omnisense\Contracts\Policy;
  * at once (null: not said); it is declared and exported, not enforced by
  * PolicyGuard (a PHP process makes one request at a time): an asynchronous
  * client or a shared semaphore reads it.
+ *
+ * A provider whose limits depend on the subscribed plan declares its
+ * $plans (the default one's limits are the policy's own); forPlan() gives
+ * the policy under one, which names it in $plan. A declaration has $plan
+ * null; a policy run under a plan has $plans null.
  */
 final readonly class UsagePolicy
 {
@@ -34,12 +39,20 @@ final readonly class UsagePolicy
         public Requirements $requirements = new Requirements(),
         public Provenance $provenance = new Provenance(),
         public ?int $concurrency = null,
+        public ?Plans $plans = null,
+        public ?string $plan = null,
     ) {
         if ('' === trim($provider)) {
             throw InvalidPolicyException::field('provider', 'a name', $provider);
         }
         if (null !== $concurrency && $concurrency < 1) {
             throw InvalidPolicyException::field('concurrency', 'an integer of 1 or more, or null', $concurrency);
+        }
+        if (null !== $plans && null !== $plan) {
+            throw InvalidPolicyException::field('plan', 'absent where the policy declares plans: forPlan() picks one', $plan);
+        }
+        if (null !== $plans) {
+            self::assertDefaultPlan($provider, $plans, $rateLimits, $concurrency);
         }
         $this->rateLimits = $rateLimits;
     }
@@ -76,7 +89,7 @@ final readonly class UsagePolicy
     /** @param array<string, mixed> $data */
     public static function fromArray(array $data): self
     {
-        Read::only($data, ['$schema', 'provider', 'rateLimits', 'concurrency', 'rights', 'requirements', 'provenance'], '(root)');
+        Read::only($data, ['$schema', 'provider', 'rateLimits', 'concurrency', 'rights', 'requirements', 'provenance', 'plans', 'plan'], '(root)');
         $provider = Read::string($data['provider'] ?? null, 'provider') ?? throw InvalidPolicyException::field('provider', 'a name', null);
         $limits = null;
         if (null !== ($data['rateLimits'] ?? null)) {
@@ -96,6 +109,8 @@ final readonly class UsagePolicy
             Requirements::fromArray(Read::object($data['requirements'] ?? null, 'requirements')),
             Provenance::fromArray(Read::object($data['provenance'] ?? null, 'provenance')),
             Read::int($data['concurrency'] ?? null, 'concurrency', 1),
+            null === ($data['plans'] ?? null) ? null : Plans::fromArray(Read::object($data['plans'], 'plans')),
+            Read::string($data['plan'] ?? null, 'plan'),
         );
     }
 
@@ -120,7 +135,38 @@ final readonly class UsagePolicy
     /** The same policy under another provider's name. */
     public function named(string $provider): self
     {
-        return new self($provider, $this->rateLimits, $this->rights, $this->requirements, $this->provenance, $this->concurrency);
+        return new self($provider, $this->rateLimits, $this->rights, $this->requirements, $this->provenance, $this->concurrency, $this->plans, $this->plan);
+    }
+
+    /**
+     * The same policy declaring plans (a separate plans file, read during
+     * the transition): its own limits must be the default plan's.
+     */
+    public function withPlans(Plans $plans): self
+    {
+        return new self($this->provider, $this->rateLimits, $this->rights, $this->requirements, $this->provenance, $this->concurrency, $plans);
+    }
+
+    /**
+     * The policy under a plan the provider declares (null: the default):
+     * the plan's rateLimits and concurrency replace the policy's, its
+     * source and date become the provenance's policy and verifiedAt, its
+     * notes say which plan applies; rights, requirements and terms stay the
+     * provider's. A site may then only tighten it. An unknown plan, or a
+     * plan named for a provider that declares none, throws
+     * InvalidPolicyException. On a policy already run under a plan, the same
+     * plan (or null) gives it back.
+     */
+    public function forPlan(?string $plan): self
+    {
+        if (null !== $this->plans) {
+            return $this->plans->apply($this, $plan);
+        }
+        if (null === $plan || $plan === $this->plan) {
+            return $this;
+        }
+
+        throw new InvalidPolicyException(null === $this->plan ? \sprintf('%s declares no plans: no "%s" plan.', $this->provider, $plan) : \sprintf('%s already runs the "%s" plan, not "%s".', $this->provider, $this->plan, $plan));
     }
 
     public function knowsLimits(): bool
@@ -158,6 +204,10 @@ final readonly class UsagePolicy
         }
         if ([] === $site) {
             return $this;
+        }
+        if (null !== $this->plans) {
+            // A site tightens the plan it runs: the default, unless forPlan() picked another.
+            return $this->forPlan(null)->tighten($site);
         }
         $merged = $this->toArray();
         if (null !== ($site['rateLimits'] ?? null)) {
@@ -206,7 +256,7 @@ final readonly class UsagePolicy
         return $violations;
     }
 
-    /** @return array<string, mixed> the schema's shape */
+    /** @return array<string, mixed> the schema's shape; "plans" and "plan" only when set, so that a policy without them writes what it always did */
     public function toArray(): array
     {
         return [
@@ -216,7 +266,7 @@ final readonly class UsagePolicy
             'rights' => $this->rights->toArray(),
             'requirements' => $this->requirements->toArray(),
             'provenance' => $this->provenance->toArray(),
-        ];
+        ] + (null === $this->plans ? [] : ['plans' => $this->plans->toArray()]) + (null === $this->plan ? [] : ['plan' => $this->plan]);
     }
 
     public function toJson(): string
@@ -251,6 +301,12 @@ final readonly class UsagePolicy
         if (null !== $old->caching->maxTtl && (null === $new->caching->maxTtl || $new->caching->maxTtl > $old->caching->maxTtl)) {
             throw $loosened('cache time to live', $old->caching->maxTtl.' s', null === $new->caching->maxTtl ? 'no maximum' : $new->caching->maxTtl.' s');
         }
+        if (null !== $old->retention && (null === $new->retention || $new->retention->maxAge > $old->retention->maxAge)) {
+            throw $loosened('retention', $old->retention->maxAge.' s', null === $new->retention ? 'no maximum' : $new->retention->maxAge.' s');
+        }
+        if (null !== $old->retention?->covers && $old->retention->covers !== $new->retention->covers) {
+            throw $loosened('retention scope', '"'.$old->retention->covers.'"', null === $new->retention->covers ? 'none' : '"'.$new->retention->covers.'"');
+        }
         if ($old->attribution->required && !$new->attribution->required) {
             throw $loosened('attribution', 'required', 'not required');
         }
@@ -264,5 +320,38 @@ final readonly class UsagePolicy
                 throw $loosened($field.' requirement', 'required', 'not required');
             }
         }
+    }
+
+    /**
+     * The policy's own limits and concurrency are its default plan's, where
+     * the default plan names them: compared by what they count (RateLimit::id()), not by their notes.
+     *
+     * @param ?list<RateLimit> $rateLimits
+     */
+    private static function assertDefaultPlan(string $provider, Plans $plans, ?array $rateLimits, ?int $concurrency): void
+    {
+        $default = $plans->get();
+        if (null !== $default->rateLimits && self::limitIds($default->rateLimits) !== self::limitIds($rateLimits)) {
+            throw new InvalidPolicyException(\sprintf('%s\'s rateLimits must be its default plan\'s ("%s"): %s declared, the plan says %s.', $provider, $plans->default, null === $rateLimits ? 'none' : implode(', ', array_map(static fn (RateLimit $l) => $l->describe(), $rateLimits)), implode(', ', array_map(static fn (RateLimit $l) => $l->describe(), $default->rateLimits)) ?: 'none'));
+        }
+        if (null !== $default->concurrency && $default->concurrency !== $concurrency) {
+            throw new InvalidPolicyException(\sprintf('%s\'s concurrency must be its default plan\'s ("%s"): %s declared, the plan says %d.', $provider, $plans->default, null === $concurrency ? 'none' : (string) $concurrency, $default->concurrency));
+        }
+    }
+
+    /**
+     * @param ?list<RateLimit> $limits
+     *
+     * @return ?list<string> what they count, sorted
+     */
+    private static function limitIds(?array $limits): ?array
+    {
+        if (null === $limits) {
+            return null;
+        }
+        $ids = array_map(static fn (RateLimit $limit) => $limit->id(), $limits);
+        sort($ids);
+
+        return $ids;
     }
 }

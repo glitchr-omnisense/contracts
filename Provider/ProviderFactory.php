@@ -21,8 +21,12 @@ use Omnisense\Contracts\Policy\UsagePolicy;
  * Before make(), the Config holds the provider's Backoff ("<prefix>.backoff",
  * Config::backoff()), over the registry's limiter ("<prefix>.limiter") or an
  * in-memory one: the factory gives it to the provider's JsonClient. After,
- * guard() gives the provider's PolicyGuard: its declared policy tightened by
- * the "policy" option, checked against the "usage" option.
+ * guard() gives the provider's PolicyGuard: its declared policy under the
+ * "plan" option (UsagePolicy::forPlan(): the default plan when it is not
+ * given), tightened by the "policy" option, checked against the "usage"
+ * option. The Config holds the limiter too, so that a guard the provider
+ * builds for requests the registry does not see (Config::guard(): token
+ * requests, the pages of a listing) counts with the same limiter.
  *
  * Nothing here calls anything: a factory whose provider is reached over
  * HTTP takes its client in its own constructor - the application's, a
@@ -47,6 +51,7 @@ abstract class ProviderFactory implements ProviderFactoryInterface
         $config->validateNotEmpty(\is_array($required) ? array_values(array_filter($required, 'is_string')) : []);
         $limiter = $config->get($config->key('limiter'));
         $limiter = $limiter instanceof RateLimiterInterface ? $limiter : new InMemoryRateLimiter();
+        $config[$config->key('limiter')] = $limiter;
         $backoff = new Backoff($limiter, $config->string($config->key('factory_name')) ?? static::class, $this->limitException());
         $config[$config->key('backoff')] = $backoff;
         $provider = $this->make($config);
@@ -82,7 +87,7 @@ abstract class ProviderFactory implements ProviderFactoryInterface
         }
         if (!isset($built[3])) {
             [$config, $limiter, $backoff] = $built;
-            $built[3] = new PolicyGuard(self::effectivePolicy($provider, $config->map('policy'), $config->map('usage')), $limiter, $backoff, $this->limitException());
+            $built[3] = new PolicyGuard(self::effectivePolicy($provider, $config->map('policy'), $config->map('usage'), $config->string('plan')), $limiter, $backoff, $this->limitException());
             $this->built[$provider] = $built;
         }
 
@@ -91,19 +96,22 @@ abstract class ProviderFactory implements ProviderFactoryInterface
 
     /**
      * A provider's policy as a site runs it: declared by the provider
-     * (DeclaresUsagePolicyInterface, or its Capabilities), tightened by the
-     * site's "policy" option, checked against its "usage" option.
+     * (DeclaresUsagePolicyInterface, or its Capabilities), under the plan
+     * the site subscribed to (the "plan" option; the default plan when
+     * null), tightened by the site's "policy" option - a site only tightens
+     * the plan it runs -, checked against its "usage" option.
      *
      * @param array<string, mixed> $policy the site's tightening
      * @param array<string, mixed> $usage  what the site says of itself
+     * @param ?string              $plan   the plan's name (UsagePolicy::forPlan(): an unknown one throws InvalidPolicyException)
      */
-    public static function effectivePolicy(ProviderInterface $provider, array $policy = [], array $usage = []): UsagePolicy
+    public static function effectivePolicy(ProviderInterface $provider, array $policy = [], array $usage = [], ?string $plan = null): UsagePolicy
     {
         $declared = $provider instanceof DeclaresUsagePolicyInterface ? $provider->usagePolicy() : $provider->capabilities()->policy();
         if (UsagePolicy::UNNAMED === $declared->provider) {
             $declared = $declared->named($provider->getName());
         }
-        $effective = $declared->tighten($policy);
+        $effective = $declared->forPlan($plan)->tighten($policy);
         if ([] !== $usage && [] !== $violations = $effective->violations(Usage::fromArray($usage))) {
             throw UsageNotPermitted::of($effective->provider, $violations);
         }

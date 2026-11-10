@@ -4,6 +4,11 @@ namespace Omnisense\Contracts\Provider;
 
 use Omnisense\Contracts\Exception\InvalidConfigException;
 use Omnisense\Contracts\Policy\Backoff;
+use Omnisense\Contracts\Policy\InMemoryRateLimiter;
+use Omnisense\Contracts\Policy\PolicyGuard;
+use Omnisense\Contracts\Policy\RateLimiterInterface;
+use Omnisense\Contracts\Policy\UsageLimitReached;
+use Omnisense\Contracts\Policy\UsagePolicy;
 
 /**
  * A provider's configuration while its factory builds it: the options
@@ -124,6 +129,33 @@ class Config extends \ArrayObject
         $backoff = $this->get($this->key('backoff'));
 
         return $backoff instanceof Backoff ? $backoff : null;
+    }
+
+    /**
+     * A guard for the requests a provider makes that the registry's guard
+     * does not see, for its factory to give the provider: an OAuth token
+     * request (under an operation of its own, "token"), each further page of
+     * a listing it pages lazily (under the listing's operation). Its policy
+     * is the one given (the provider's declared policy) under the "plan"
+     * option and tightened by the "policy" option, as the registry's is; it
+     * counts in the same limiter (the registry's, or the factory's own) and
+     * waits with the provider's Backoff, so both guards count together, and
+     * throws the family's UsageLimitReached.
+     *
+     *   new HelloAssoProvider($client, tokens: $c->guard(UsagePolicy::fromFile(HelloAssoProvider::POLICY)));
+     *   $this->tokens->call('token', fn () => $this->client->request('POST', '/oauth2/token', [...]));
+     */
+    public function guard(UsagePolicy $policy): PolicyGuard
+    {
+        $limiter = $this->get($this->key('limiter'));
+        $backoff = $this->backoff();
+
+        return new PolicyGuard(
+            $policy->forPlan($this->string('plan'))->tighten($this->map('policy')),
+            $limiter instanceof RateLimiterInterface ? $limiter : new InMemoryRateLimiter(),
+            $backoff,
+            $backoff?->exception() ?? UsageLimitReached::class,
+        );
     }
 
     /** The family's InvalidConfigException. */

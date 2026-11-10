@@ -13,6 +13,15 @@ namespace Omnisense\Contracts\Policy;
  * or from package folders (a workspace's checkouts), each policy checked
  * by UsagePolicy::fromFile(). A package whose policy cannot be read is
  * listed with its error instead.
+ *
+ * A policy carries its plans in its "plans" member. During the transition, a
+ * package whose plans are still in a file of their own names it too, and
+ * the export puts them in the policy (UsagePolicy::withPlans()):
+ *
+ *   "extra": {"omnisense": {"policy": "policy.json", "plans": "plans.json"}}
+ *
+ * ("plans" a map of policy file to plans file for a package of several
+ * policies.)
  */
 final class PolicyExport
 {
@@ -71,13 +80,19 @@ final class PolicyExport
     {
         $extra = \is_array($composer['extra'] ?? null) && \is_array($composer['extra']['omnisense'] ?? null) ? $composer['extra']['omnisense'] : [];
         $files = $extra['policy'] ?? $extra['policies'] ?? [];
+        $plans = $extra['plans'] ?? null;
         foreach (\is_string($files) ? [$files] : (\is_array($files) ? $files : []) as $file) {
             if (!\is_string($file)) {
                 continue;
             }
             $entry = ['package' => $name, 'version' => $version, 'file' => $file];
             try {
-                $entry['policy'] = UsagePolicy::fromFile(rtrim($folder, '/').'/'.$file)->toArray();
+                $policy = UsagePolicy::fromFile(rtrim($folder, '/').'/'.$file);
+                $separate = \is_string($plans) ? $plans : (\is_array($plans) && \is_string($plans[$file] ?? null) ? $plans[$file] : null);
+                if (null !== $separate) {
+                    $policy = null === $policy->plans ? $policy->withPlans(Plans::fromFile(rtrim($folder, '/').'/'.$separate)) : throw new InvalidPolicyException(\sprintf('%s declares its plans twice: in its policy and in "%s".', $policy->provider, $separate));
+                }
+                $entry['policy'] = $policy->toArray();
             } catch (InvalidPolicyException $e) {
                 $entry['error'] = $e->getMessage();
             }

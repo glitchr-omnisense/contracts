@@ -53,6 +53,12 @@ final class Backoff
         return new ($this->exception)(\sprintf('%s: try again in %d s.', rtrim($reason, '.'), max(0, $seconds)), max(0, $seconds), $this->provider);
     }
 
+    /** @return class-string<UsageLimitReached> what it throws: the family's subclass, which a guard sharing this wait throws too */
+    public function exception(): string
+    {
+        return $this->exception;
+    }
+
     /** Throws while the provider's wait lasts. */
     public function clear(): void
     {

@@ -7,6 +7,7 @@ use Omnisense\Contracts\Exception\NotSupportedException;
 use Omnisense\Contracts\Policy\InMemoryRateLimiter;
 use Omnisense\Contracts\Policy\PolicyGuard;
 use Omnisense\Contracts\Policy\RateLimiterInterface;
+use Omnisense\Contracts\Policy\UsageLimitReached;
 use Omnisense\Contracts\Policy\UsagePolicy;
 
 /**
@@ -22,8 +23,9 @@ use Omnisense\Contracts\Policy\UsagePolicy;
  *       ],
  *   ], $limiter);
  *
- * "policy" tightens the provider's usage policy (UsagePolicy::tighten():
- * never looser), "usage" says what the site is, so that a use the terms
+ * "plan" picks the plan the site subscribed to, where the provider declares
+ * plans (UsagePolicy::forPlan()); "policy" tightens the provider's usage
+ * policy (UsagePolicy::tighten(): never looser), "usage" says what the site is, so that a use the terms
  * forbid fails at once; both may sit in "options" too. Every provider counts
  * in the limiter given (an in-memory one by default): an application served
  * by many processes gives a shared one.
@@ -83,9 +85,10 @@ class Registry
         $options = $this->options($name);
         $policy = \is_array($options['policy'] ?? null) ? $options['policy'] : [];
         $usage = \is_array($options['usage'] ?? null) ? $options['usage'] : [];
+        $plan = \is_string($options['plan'] ?? null) && '' !== $options['plan'] ? $options['plan'] : null;
 
         return $this->guards[$name] = ($factory instanceof ProviderFactory ? $factory->guard($provider) : null)
-            ?? new PolicyGuard(ProviderFactory::effectivePolicy($provider, self::map($policy), self::map($usage)), $this->limiter);
+            ?? new PolicyGuard(ProviderFactory::effectivePolicy($provider, self::map($policy), self::map($usage), $plan), $this->limiter, null, $this->limitException());
     }
 
     /** A provider's usage policy as the site runs it: the provider's, tightened by the site's configuration. */
@@ -164,6 +167,18 @@ class Registry
         $provider = $this->config[$name] ?? throw $this->invalid(\sprintf('No "%s" provider; configured: %s.', $name, implode(', ', array_keys($this->config)) ?: 'none'));
 
         return $this->factories[$provider['factory']] ?? throw $this->invalid(\sprintf('No "%s" factory for the "%s" provider; installed: %s.', $provider['factory'], $name, implode(', ', array_keys($this->factories)) ?: 'none'));
+    }
+
+    /**
+     * The family's UsageLimitReached subclass, for the guard of a provider
+     * whose factory is not the kernel's (its own factories' guards throw
+     * theirs already).
+     *
+     * @return class-string<UsageLimitReached>
+     */
+    protected function limitException(): string
+    {
+        return UsageLimitReached::class;
     }
 
     /** The family's InvalidConfigException. */

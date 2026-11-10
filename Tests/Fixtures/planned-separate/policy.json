@@ -1,0 +1,5 @@
+{
+    "provider": "crawler",
+    "rateLimits": [{"max": 10, "window": "minute", "operations": ["fetch"]}],
+    "concurrency": 2
+}

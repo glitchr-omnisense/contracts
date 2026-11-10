@@ -1,0 +1,8 @@
+{
+    "$schema": "https://github.com/glitchr-omnisense/omnicrawl/blob/1.x/resources/plans.schema.json",
+    "default": "free",
+    "plans": {
+        "free": {"rateLimits": [{"max": 10, "window": "minute", "operations": ["fetch"]}], "concurrency": 2, "source": "https://provider.example.com/limits", "verifiedAt": "2026-11-10"},
+        "hobby": {"rateLimits": [{"max": 100, "window": "minute", "operations": ["fetch"]}], "concurrency": 5, "source": "https://provider.example.com/limits", "verifiedAt": "2026-11-10"}
+    }
+}

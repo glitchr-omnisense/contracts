@@ -21,13 +21,15 @@ final readonly class Rights
         public Permission $redistribution = Permission::Unknown,
         public Attribution $attribution = new Attribution(),
         public ?string $licence = null,
+        public ?Retention $retention = null,
     ) {
     }
 
     /** @param array<string, mixed> $data */
     public static function fromArray(array $data): self
     {
-        Read::only($data, ['commercial', 'openSourceRequired', 'caching', 'storage', 'redistribution', 'attribution', 'licence'], 'rights');
+        Read::only($data, ['commercial', 'openSourceRequired', 'caching', 'storage', 'redistribution', 'attribution', 'licence', 'retention'], 'rights');
+
         return new self(
             Read::enum($data['commercial'] ?? null, 'rights.commercial', Permission::class, Permission::Unknown),
             Read::nullableBool($data['openSourceRequired'] ?? null, 'rights.openSourceRequired'),
@@ -36,10 +38,11 @@ final readonly class Rights
             Read::enum($data['redistribution'] ?? null, 'rights.redistribution', Permission::class, Permission::Unknown),
             Attribution::fromArray(Read::object($data['attribution'] ?? null, 'rights.attribution')),
             Read::string($data['licence'] ?? null, 'rights.licence'),
+            Retention::fromArray(Read::object($data['retention'] ?? null, 'rights.retention')),
         );
     }
 
-    /** @return array<string, mixed> */
+    /** @return array<string, mixed> "retention" only when one is set, so that a policy without it writes what it always did */
     public function toArray(): array
     {
         return [
@@ -50,6 +53,6 @@ final readonly class Rights
             'redistribution' => $this->redistribution->value,
             'attribution' => $this->attribution->toArray(),
             'licence' => $this->licence,
-        ];
+        ] + (null === $this->retention ? [] : ['retention' => $this->retention->toArray()]);
     }
 }

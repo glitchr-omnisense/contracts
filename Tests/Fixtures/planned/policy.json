@@ -1,0 +1,19 @@
+{
+    "$schema": "../../../resources/usage-policy.schema.json",
+    "provider": "translator",
+    "rateLimits": [
+        {"max": 500000, "window": "month", "unit": "characters", "operations": ["translate"], "note": "Free: 500,000 characters a month."}
+    ],
+    "concurrency": 2,
+    "rights": {"commercial": "allowed", "retention": {"maxAge": 2592000, "covers": "texts sent and their translations"}},
+    "requirements": {"key": true},
+    "provenance": {"terms": "https://provider.example.com/terms", "verifiedAt": "2026-11-10", "notes": "Terms read."},
+    "plans": {
+        "default": "free",
+        "plans": {
+            "free": {"rateLimits": [{"max": 500000, "window": "month", "unit": "characters", "operations": ["translate"]}], "concurrency": 2, "source": "https://provider.example.com/plans", "verifiedAt": "2026-11-10"},
+            "pro": {"rateLimits": [], "concurrency": 10, "source": "https://provider.example.com/plans", "verifiedAt": "2026-11-10", "note": "Pay as you go: no cap."},
+            "team": {"concurrency": 5, "source": "https://provider.example.com/team", "verifiedAt": "2026-11-09"}
+        }
+    }
+}

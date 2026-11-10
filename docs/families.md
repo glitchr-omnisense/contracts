@@ -10,7 +10,7 @@ stay, each a thin subclass.
 | `ProviderInterface` | `Provider\ProviderInterface` | `capabilities(): Capabilities` (its own) |
 | `ProviderFactoryInterface` | `Provider\ProviderFactoryInterface` | `create(): ProviderInterface` (its own) |
 | `ProviderFactory` (abstract) | `Provider\ProviderFactory` | `populate()`/`build()` on its Config (the names its providers already use), `limitException()` |
-| `Registry` (final) | `Provider\Registry` | `PREFIX`, its typed accessors, each a guarded `contract()`; `invalid()`, `notSupported()` |
+| `Registry` (final) | `Provider\Registry` | `PREFIX`, its typed accessors, each a guarded `contract()`; `invalid()`, `notSupported()`, `limitException()` (the guard it builds for a factory that is not the kernel's) |
 | `Capabilities` (final readonly) | `Provider\CapabilitiesInterface` | its fields; `policy()` (given, or `UsagePolicy::described()` from older fields) |
 | `Http\JsonClient`, `Http\Data`, `Http\Redaction` (final) | `Http\*` | its exceptions through `answered()`/`unreachable()`, its Data through `data()` |
 | `Testing\RecordedHttpClient`, `RecordedResponse` (final) | `Testing\*` | its name |
@@ -19,6 +19,12 @@ stay, each a thin subclass.
 | `Exception\<Family>Exception` | `Exception\ExceptionInterface` | `extends` it |
 | `Exception\UsageLimitReachedException` (final) | `Policy\UsageLimitReached` | implements the family's interface |
 | `Policy\Guarded<Contract>` | - | one per contract: each method a `PolicyGuard::call()` named after it |
+
+A provider's requests that its registry's guard does not see - an OAuth token renewed in the
+middle of a listing, the further pages of a listing it pages lazily - go through a guard its
+factory gives it: `$c->guard(UsagePolicy::fromFile(self::POLICY))` (`Config::guard()`), which
+runs the same plan and tightening as the registry's, counts in the same limiter and throws the
+family's exception. See [Requests inside an operation](policies.md#requests-inside-an-operation).
 
 The guarded wrappers are the family's own: PHP cannot implement "whatever interfaces the
 provider has" at run time, so the registry's typed accessors (`timetables()`, `search()`...)

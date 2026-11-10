@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+What thirteen families' migrations asked for next (round 3). Every policy.json written so far
+reads as before; `toArray()` writes `plans`, `plan` and `rights.retention` only when they are
+set, so a policy without them writes what it always did.
+
+- Plans (omnicrawl's `Policy\Plans`, moved in): a `plans` member (`default`, `plans`: name →
+  `{rateLimits?, concurrency?, source, verifiedAt, note?}`), `Policy\Plans` and `Policy\Plan`;
+  the default plan must exist and the policy's own limits and concurrency must be its.
+  `UsagePolicy::forPlan(?string)`: the plan's limits and concurrency replace the policy's, its
+  source and date become the provenance's, `$plan` names it; an unknown plan, or one for a
+  provider without plans, throws `InvalidPolicyException`. `withPlans()`;
+  `PolicyBuilder::plans()`. `tighten()` on a declaration with plans tightens its default plan.
+- `ProviderFactory::effectivePolicy()` takes the `plan` (the factory's `plan` option, read by
+  `guard()` and the registry) and applies it before `tighten()`: a site only tightens its plan.
+- `PolicyExport` carries the plans, and reads a separate plans file named in
+  `extra.omnisense.plans` (a file, or a map of policy file to plans file) during the transition.
+- `Config::guard(UsagePolicy)`, from omniticket: a guard for the requests the registry's guard
+  does not see (an OAuth `token` request, each further page of a listing paged lazily), under
+  the same plan and tightening, in the same limiter, with the provider's Backoff and the
+  family's exception. `ProviderFactory::create()` keeps the limiter in the Config
+  (`<prefix>.limiter`), so the two guards count together outside a registry too.
+  `Backoff::exception()`.
+- `rights.retention` (`Policy\Retention`: `maxAge` in seconds, `covers`): how long the data may
+  be kept at all, beside `caching.maxTtl`; a site may only shorten it, never lift it nor change
+  what it covers; exported. `PolicyBuilder::retention()`.
+- `Registry::limitException()`: the family's `UsageLimitReached` subclass for the guard the
+  registry builds itself (a factory that is not the kernel's); `UsageLimitReached` by default.
+- Fixed `RateLimit::describe()`: "1200 an hour" (was "a hour"); the other windows were right.
+
 What the first family migrations (omnishow, omnistay, omniplay, omnical) found missing. Every
 policy.json written so far reads as before.
 
