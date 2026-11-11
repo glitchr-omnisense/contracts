@@ -2,7 +2,17 @@
 
 ## [Unreleased]
 
-What the family migrations still lacked (round 4). Every policy.json written so far reads as
+Nothing yet.
+
+## [1.0.0-rc.1] - 2026-11-11
+
+The first tagged version of the kernel every omni family builds on: everything below, from its
+first state on. Backward compatible throughout: every policy.json written since the first state
+reads as it did. What `1.x-dev` installed until now (1568f2c in the sites' vendors) is a subset.
+
+### Round 4
+
+What the family migrations still lacked. Every policy.json written so far reads as
 before; `RateLimit::toArray()` writes `per` only for a limit counted per resource.
 
 - Limits per resource: `Scope::Resource` (`"scope": "resource"`) and `RateLimit::$per`, the kind
@@ -32,7 +42,9 @@ before; `RateLimit::toArray()` writes `per` only for a limit counted per resourc
   omnidrive's), `BareTest` counted them as outside the package. `eager` still lists Composer's
   files. Tests/Testing/LoadAllTest.
 
-Writes sent once (backward compatible: nothing calls it until a family does).
+### Writes sent once
+
+Backward compatible: nothing calls it until a family does.
 
 - `Http\NoRetry`: the HTTP client a factory is given, kept from replaying a request. Symfony's
   `RetryableHttpClient` (`framework.http_client`'s `retry_failed`) resends a POST answered 423,
@@ -47,7 +59,9 @@ Writes sent once (backward compatible: nothing calls it until a family does).
   Tests/Http/NoRetryTest: a POST answered 503 then 200 sent once over a real
   `RetryableHttpClient`, a GET sent once by `of()` and retried by `forWrites()`.
 
-What thirteen families' migrations asked for next (round 3). Every policy.json written so far
+### Round 3
+
+What thirteen families' migrations asked for next. Every policy.json written so far
 reads as before; `toArray()` writes `plans`, `plan` and `rights.retention` only when they are
 set, so a policy without them writes what it always did.
 
@@ -74,6 +88,8 @@ set, so a policy without them writes what it always did.
 - `Registry::limitException()`: the family's `UsageLimitReached` subclass for the guard the
   registry builds itself (a factory that is not the kernel's); `UsageLimitReached` by default.
 - Fixed `RateLimit::describe()`: "1200 an hour" (was "a hour"); the other windows were right.
+
+### Round 2
 
 What the first family migrations (omnishow, omnistay, omniplay, omnical) found missing. Every
 policy.json written so far reads as before.
@@ -108,7 +124,7 @@ policy.json written so far reads as before.
   body that could not be read), as omniplay's and omnical's do.
 - The JSON Schema: `every`, `unit`, `cost`, `concurrency`.
 
-## 1.x (first state)
+### The first state
 
 - 2026-11-10: the kernel written, from omnisense/omnitravel's copy (the newest), checked against
   omnishow's and omnistay's: `Provider\` (ProviderInterface, CapabilitiesInterface,
