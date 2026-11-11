@@ -2,7 +2,24 @@
 
 ## [Unreleased]
 
-Nothing yet.
+Housekeeping after the first tag; no change to the package's code.
+
+- `.gitattributes`: the release's source archive, and what Composer installs from it, leaves out
+  `Tests/`, `.github/`, `docker/`, `phpunit.xml.dist`, the PHPStan configuration, `.gitignore` and
+  itself; `bin/` (the bare check's child process, `omnisense-policies`), `Testing\`, `resources/`
+  and `docs/` stay. Checked from an archive installed in a provider package: its `BareTest` and
+  `vendor/bin/omnisense-policies` work. Tests/ArchiveTest reads the attributes as `git archive`
+  does.
+- docs/families.md reread against the families: the four shapes they took (providers on the
+  kernel's registry, Payum-style gateways guarded whole, registries of their own, the kernel
+  where it fits), where each puts `Http\NoRetry`, a provider's own requests (token, pages, a
+  resource), decoded answers through `Data` for PHPStan at max, and a migration checklist drawn
+  from the four rounds.
+- docs/declare-your-policy.md: limits per resource (`"scope": "resource"`, `per`) and how a
+  provider counts them, its token requests and its pages. docs/policies.md: an operation that reads
+  every page before it returns is recorded by the registry's guard after them. README: the policy
+  fields added since the first state (`every`, the resource scope, units and costs, concurrency,
+  plans, retention), `Http\NoRetry`.
 
 ## [1.0.0-rc.1] - 2026-11-11
 

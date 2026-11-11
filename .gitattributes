@@ -1,0 +1,11 @@
+# Left out of the release's source archive and of what Composer installs from it: the tests, the
+# CI and the analysis configuration. Kept: the package, bin/ (the bare check's child process and
+# omnisense-policies), resources/ (the schema), docs/.
+/.github export-ignore
+/Tests export-ignore
+/docker export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/phpunit.xml.dist export-ignore
+/phpstan.neon export-ignore
+/phpstan-baseline.neon export-ignore

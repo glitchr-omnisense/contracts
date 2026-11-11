@@ -47,6 +47,12 @@ as data, so every site that installs your package is held to it.
          "pro": {"rateLimits": [], "source": "https://...", "verifiedAt": "2026-11-10", "note": "Billed per character, no cap."}
      }}
      ```
+   - **Per resource**: a limit the terms set per object - a parcel tracked 6 times a day, an
+     envelope polled once per 15 minutes - is `"scope": "resource"` with `per`, the kind of
+     resource in lower case, and names its `operations`:
+     `{"max": 6, "window": "day", "scope": "resource", "per": "parcel", "operations": ["trackParcel"]}`.
+     The operation is usually the provider's own (the registry's guard sees the family's
+     operation without the resource), counted as step 4 says.
    - `rights.retention`: how long the terms let a site keep the data at all (`maxAge` in
      seconds, `covers` what it applies to, in the terms' words): DossierFacile's three months,
      YouTube's 30 days. Not `caching.maxTtl`, which is how long an answer may be served again.
@@ -61,8 +67,10 @@ as data, so every site that installs your package is held to it.
 4. **Give it to the family**: have your provider implement `DeclaresUsagePolicyInterface`
    (`usagePolicy(): UsagePolicy`, read once from the file), and pass it to its Capabilities
    (`policy:`). Pass the factory's `Config::backoff()` to your `JsonClient`, so that 429s and
-   `Retry-After` are honoured. A token request, or each further page of a listing paged
-   lazily, goes through `Config::guard()` (policies.md, "Requests inside an operation").
+   `Retry-After` are honoured. A token request (`call('token', ...)`), each further page of a
+   listing (`pages()`), and a request about one resource a limit counts per resource
+   (`perResource()->call($operation, ..., ['resource' => $key])`) go through `Config::guard()`
+   (policies.md, "Requests inside an operation" and "Limits per resource").
 5. **Test it**: the declared figures, a limit reached through the registry (no request goes out),
    a 429 with its `Retry-After` honoured, a looser site configuration refused. omnitravel/transitous'
    `Tests/PolicyTest.php` is the model.

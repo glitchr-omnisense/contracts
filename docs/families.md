@@ -1,8 +1,27 @@
 # Building a family on the kernel
 
 A family core keeps its contracts (its `*Interface` per capability), its models, its
-Capabilities fields; the scaffolding comes from here. omnitravel is the model: its public names
-stay, each a thin subclass.
+Capabilities fields and its public names; the scaffolding comes from here, as far as it fits the
+family. Every family now requires `omnisense/contracts`; they took four shapes.
+
+## The shapes the families took
+
+| Shape | Families | Registry and guard | HTTP |
+|---|---|---|---|
+| Providers on the kernel's registry | omnitravel (the model), omnishow, omnistay, omniplay, omnicrawl, omnilang, omnical, omnidns, omniticket, omnipulse; omnimap; omnishield, omniguard; omnibill, omnisign | the kernel's `Registry` and `ProviderFactory`; the typed accessors give a `Policy\Guarded<Contract>` per contract (omnibill and omnisign: the gateway itself, the caller going through `guard($name)->call()`) | `Http\JsonClient` (a thin subclass) with `$c->backoff()`; omnishield's `Http\Answer`; omnimap's providers keep their own calls |
+| Payum-style gateways | omnibus, omnitrade, omnibank, omnimeet | the kernel's `Registry`; one `Gateway` guarded as a whole (`guardedBy(PolicyGuard)`, operation names in `Gateway::OPERATIONS`), `Registry::guarded($name)` | a per-provider `Api` over the family's `Http\Throttle` (`Backoff::clear()` before each call, `observe()` after) |
+| Registries of their own | omnistate (`Policy\Guards`); omnifood, omnipost, omnisong; omnilab, omnilex, omnischolar (`Source\HttpSource`, `Policy\SourceGuard`) | the family's registry, a `PolicyGuard` per provider from its declared policy, `Guarded*` wrappers | the family's client, given the provider's `Backoff` |
+| Where it fits | omniauth, omnisearch, omnidrive | none: their docs say why (a sign-in is never counted against a usage limit; a self-hosted engine declares none; a drive's published figures are per prefix or per blob) | omniauth's providers and omnidrive's engines through their libraries |
+
+Every shape keeps: one `ExceptionInterface` above the family's exceptions; a policy per provider
+as data (`policy.json`, `extra.omnisense.policy`, `DeclaresUsagePolicyInterface` or the factory's
+`<prefix>.policy`) wherever an API is called; the `Backoff` fed by every answer; a client that
+never replays a write (`Http\NoRetry`); the bare check; the harness mounting the contracts
+checkout (`OMNISENSE_CONTRACTS` in `docker/.env`).
+
+## The classes, for a family on the kernel's registry
+
+omnitravel is the model: its public names stay, each a thin subclass.
 
 | Family class | On | What it adds |
 |---|---|---|
@@ -21,15 +40,29 @@ stay, each a thin subclass.
 | `Exception\UsageLimitReachedException` (final) | `Policy\UsageLimitReached` | implements the family's interface |
 | `Policy\Guarded<Contract>` | - | one per contract: each method a `PolicyGuard::call()` named after it |
 
-A provider's requests that its registry's guard does not see - an OAuth token renewed in the
-middle of a listing, the further pages of a listing it pages lazily - go through a guard its
-factory gives it: `$c->guard(UsagePolicy::fromFile(self::POLICY))` (`Config::guard()`), which
-runs the same plan and tightening as the registry's, counts in the same limiter and throws the
-family's exception. See [Requests inside an operation](policies.md#requests-inside-an-operation).
-
 The guarded wrappers are the family's own: PHP cannot implement "whatever interfaces the
 provider has" at run time, so the registry's typed accessors (`timetables()`, `search()`...)
-return one wrapper per contract, and `get()` the provider itself.
+return one wrapper per contract, and `get()` the provider itself. A gateway family has one
+class answering every request, so it is guarded whole.
+
+## A provider's own requests
+
+A provider's requests that its registry's guard does not see go through a guard its factory gives
+it, `$c->guard(UsagePolicy::fromFile(self::POLICY))` (`Config::guard()`), which runs the same plan
+and tightening as the registry's, counts in the same limiter and throws the family's exception:
+
+- an OAuth token renewed in the middle of an operation: `call('token', ...)` (omnipulse,
+  omniticket/helloasso);
+- the further pages of a listing: `pages($operation, $first, $next)` or the loop with `call()`
+  (omnidns, omniticket). An operation that reads all its pages before it returns is recorded by
+  the registry's guard after them, so within that call each page is checked against the pages
+  already counted, not against the call itself: one page more than the limit can go out in it;
+- a request about one resource the terms limit per resource: `perResource()->call($op, ...,
+  ['resource' => $key])`, under an operation of the provider's own (omnibus/mondial-relay's
+  `trackParcel`, omnisign/docusign's `pollEnvelope`), so that no other limit counts it twice.
+
+See [Requests inside an operation](policies.md#requests-inside-an-operation) and
+[Limits per resource](policies.md#limits-per-resource).
 
 Rules kept from the omni plan: the core requires `omnisense/contracts` and
 `symfony/http-client-contracts`, nothing of a framework; a provider package requires what it
@@ -45,8 +78,9 @@ on 500, 504, 507, 510 or a transport error (`GenericRetryStrategy::DEFAULT_RETRY
 A payment, a label's purchase, a publication or a transfer would go twice without the family's
 code retrying anything.
 
-`Http\NoRetry` is where the client enters the family - the factory's constructor, or the
-provider's own `HttpClient::create()` fallback:
+`Http\NoRetry` is where the client enters the family - the factory's constructor (omnibus,
+omnitrade, omnibank, omnifood, omnipost), the family's `JsonClient` (omnidns, omnical, omnistay),
+the bundle (omnibill, omnisign), or the provider's own `HttpClient::create()` fallback:
 
 ```php
 public function __construct(?HttpClientInterface $http = null)
@@ -75,3 +109,47 @@ public function __construct(?HttpClientInterface $http = null)
 
 A family's test proves it with a real `RetryableHttpClient` over a `MockHttpClient`: a write
 answered 503 then 200 is sent once and its 503 reaches the provider.
+
+## Decoded answers and PHPStan
+
+The families run PHPStan at level max with an empty baseline. A decoded JSON answer is `mixed`:
+it is read through `Http\Data` (or the family's subclass), whose readers give their type or null,
+never cast blindly. A provider with many reads names its own, `@internal`
+(`final readonly class Data extends \Omnisense\Contracts\Http\Data`), adding the reads that keep
+PHP's casts where the provider relied on them - `text()`, `number()`, `fields()`, and the static
+`cast()`, `integer()`, `map()` (omnitrade/stripe; omni-provider-template's `parts/json/Data.php`).
+
+## Migration checklist
+
+What the four rounds of migration found, for a family not done yet or one moving on from an
+older kernel:
+
+1. The core requires `omnisense/contracts`; its classes become thin subclasses or keep their own
+   shape (above); one `ExceptionInterface` above its exceptions; its `UsageLimitReachedException`
+   implements `Policy\UsageLimitReached`.
+2. Each provider ships `policy.json` - read at its source that day, `verifiedAt`, unknown for
+   what is not published, figures seen elsewhere in `notes` only - named in
+   `extra.omnisense.policy`, given to the family (`DeclaresUsagePolicyInterface` or the factory's
+   policy key) and to its Capabilities; the old free-text fields stay, `@deprecated`, derived from
+   the policy.
+3. The figures as the terms write them: `every` for a window of several units (trakt, Microsoft
+   Graph), not a stricter per-minute figure; `unit` and each operation's `cost` for a quota in
+   units, points or characters (YouTube, Azure Translator); `concurrency` where the terms give
+   one; `plans` with their `source` and `verifiedAt` (omnicrawl, Azure); `rights.retention` rather
+   than `caching.maxTtl` for "keep it no longer than" (dossierfacile, YouTube); `"scope":
+   "resource"` and `per` for a limit per parcel or envelope (Mondial Relay, DocuSign).
+4. `$c->backoff()` reaches every HTTP call; a 429 is the family's refusal with its
+   `Retry-After`, never retried; `Backoff::hold()` for a refusal worded otherwise (Google's 403
+   rateLimitExceeded); `withLegacyHeaders()` only for a provider that sends `X-RateLimit-*` alone.
+5. `Http\NoRetry` where the client comes in, and a test over a `RetryableHttpClient`.
+6. Token requests, further pages and per-resource requests through `Config::guard()` (above). A
+   family whose registry builds its own guards overrides `limitException()`; a family's own
+   `Config::guard()` override (omniticket's) goes: the kernel's does the same, plus the plan.
+7. Since 1.0.0-rc.1, the fallbacks written for 1568f2c and older kernels
+   (`class_exists(NoRetry::class)`, `\defined(Scope::class.'::Resource')`, the plain `call()` loop
+   instead of `pages()`) can go, with the constraint raised to `^1.0@RC` (`^1.0` once final).
+8. PHPStan at max, its baseline empty; decoded answers through `Data`.
+9. The harness mounts the contracts checkout (`OMNISENSE_CONTRACTS`) and runs its tests too; the
+   family's `BareTest` extends the kernel's `BareTestCase` (`coreDirs()` with its core).
+10. Tests per family: a limit reached with the call never made, a 429 honoured and the next call
+    held, a site's tightening accepted and a loosening refused, a write sent once.

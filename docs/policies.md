@@ -264,6 +264,13 @@ keys, so a limit of 3 requests a day lets three pages through and refuses the fo
 it is requested - the pages already read are kept, the iteration stops with
 `UsageLimitReached`.
 
+An operation that reads every page before it returns (a contract that answers a list, not a
+generator: pickup points, a full export) is different only in when the registry's own count
+lands: its `call()` records the operation after the operation, so each further page is checked
+against the pages counted so far, not against the call itself. Within that one call, one page
+more than the limit can go out; the next call is refused. A provider that must hold the limit
+to the request pages lazily, or counts its first page itself.
+
 Why the provider reports, and nothing new in the guard: the guard already checks before and
 counts after (`call()`); what was missing is a guard the provider holds that shares the
 registry's counts. A wrapper over the returned iterable cannot know where pages begin (items

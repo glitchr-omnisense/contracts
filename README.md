@@ -8,7 +8,7 @@ here, once:
 | Namespace | What | Kind |
 |---|---|---|
 | `Omnisense\Contracts\Provider\` | `ProviderInterface`, `CapabilitiesInterface`, `ProviderFactoryInterface`; `Config`, `ProviderFactory`, `Registry` | interfaces first, small bases |
-| `Omnisense\Contracts\Http\` | `JsonClient` (JSON, binary and raw calls, 404 read as null, an empty body as an empty Data, credentials kept out of every error), `Answer`, `Data`, `Redaction` | small implementations |
+| `Omnisense\Contracts\Http\` | `JsonClient` (JSON, binary and raw calls, 404 read as null, an empty body as an empty Data, credentials kept out of every error), `Answer`, `Data`, `Redaction`, `NoRetry` (a client kept from replaying a write) | small implementations |
 | `Omnisense\Contracts\Policy\` | `UsagePolicy` and its parts, `PolicyBuilder`, the JSON Schema; `PolicyGuard`, `Backoff`, `RateLimiterInterface`, `InMemoryRateLimiter`, `UsageLimitReached`; `RateLimitHeaders`; `PolicyExport` | value objects, one guard |
 | `Omnisense\Contracts\Testing\` | `RecordedHttpClient` (streams, routes by body), `RecordedResponse`, `MockHttp` (over Symfony's MockHttpClient), `BareTestCase` | test support |
 | `Omnisense\Contracts\Exception\` | `ExceptionInterface` (a family's exception interface extends it) and the generic exceptions | |
@@ -24,11 +24,14 @@ composer require omnisense/contracts
 
 Every provider declares how it may be used, as data, and every call is held to it:
 
-- **rate limits**: a maximum per window (second, minute, hour, day, month), per scope
-  (application, key, client IP, user), for some operations or all of them;
+- **rate limits**: a maximum per window (second, minute, hour, day, month, or several of them:
+  500 every 5 minutes), per scope (application, key, client IP, user, or each resource of a
+  kind: 6 trackings a day per parcel), for some operations or all of them, counted in requests
+  or in the provider's unit (characters, units, points) with a cost per operation; the requests
+  allowed at once; the figures of each plan the provider publishes;
 - **rights**: commercial use (allowed, by contract, forbidden), open source required, caching
-  (allowed up to a time to live, or not), storage and redistribution of the data, the
-  attribution (text, link, where it is shown), the data's licence;
+  (allowed up to a time to live, or not), storage and redistribution of the data, how long it
+  may be kept at all, the attribution (text, link, where it is shown), the data's licence;
 - **request requirements**: a key, a User-Agent (with a contact, by a pattern);
 - **provenance**: the terms and the policy it was read from, the day it was checked, who
   declared it (the package's maintainer, the provider itself, or the site for per-source data),
