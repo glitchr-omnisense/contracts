@@ -7,6 +7,12 @@ namespace Omnisense\Contracts\Policy;
  * operations (the family's contract methods: "journeys", "departures"...)
  * or all of them when none is named.
  *
+ * Counted per resource (Scope::Resource), $per names the kind of resource
+ * (a parcel, an envelope, a zone) and each one counts apart: the provider
+ * names the one a call is about (PolicyGuard::call()'s $context['resource']).
+ *
+ *   {"max": 6, "window": "day", "scope": "resource", "per": "parcel", "operations": ["trackParcel"]}
+ *
  * The window is $every times $window: 500 every 5 minutes is
  * (500, Window::Minute, every: 5). The unit is the provider's HTTP requests
  * by default; $cost says what one operation consumes (3 requests, 100 quota
@@ -28,6 +34,7 @@ final readonly class RateLimit
      * @param ?string            $note       what the terms say beside the figure ("more is heavy use: ask first")
      * @param int                $every      the windows it spans: 5 minutes is Window::Minute, every 5
      * @param array<string, int> $cost       what one call of an operation consumes, in $unit; 1 when not named
+     * @param ?string            $per        counted per resource: its kind ("parcel", "envelope", "zone"); null for any other scope
      */
     public function __construct(
         public int $max,
@@ -38,6 +45,7 @@ final readonly class RateLimit
         public int $every = 1,
         public Unit $unit = Unit::Requests,
         array $cost = [],
+        public ?string $per = null,
     ) {
         if ($max < 0) {
             throw InvalidPolicyException::field('rateLimits[].max', 'an integer of 0 or more', $max);
@@ -49,6 +57,15 @@ final readonly class RateLimit
             if ('' === $operation || $amount < 0) {
                 throw InvalidPolicyException::field('rateLimits[].cost', 'an object of operations to integers of 0 or more', $cost);
             }
+        }
+        if (Scope::Resource === $scope && (null === $per || !preg_match('~^[a-z][a-z0-9_-]*$~', $per))) {
+            throw InvalidPolicyException::field('rateLimits[].per', 'the kind of resource counted, in lower case ("parcel", "envelope", "zone")', $per);
+        }
+        if (Scope::Resource === $scope && [] === $operations) {
+            throw InvalidPolicyException::field('rateLimits[].operations', 'the operations a limit counted per resource counts (a call of any other names no resource)', $operations);
+        }
+        if (Scope::Resource !== $scope && null !== $per) {
+            throw InvalidPolicyException::field('rateLimits[].per', 'absent unless the scope is "resource"', $per);
         }
         $operations = array_values(array_unique($operations));
         sort($operations);
@@ -85,7 +102,7 @@ final readonly class RateLimit
     /** The same limit over $every windows: RateLimit::perMinute(500)->every(5) is 500 every 5 minutes. */
     public function every(int $every): self
     {
-        return new self($this->max, $this->window, $this->scope, $this->operations, $this->note, $every, $this->unit, $this->cost);
+        return new self($this->max, $this->window, $this->scope, $this->operations, $this->note, $every, $this->unit, $this->cost, $this->per);
     }
 
     /**
@@ -96,7 +113,16 @@ final readonly class RateLimit
      */
     public function counting(Unit $unit, array $cost = []): self
     {
-        return new self($this->max, $this->window, $this->scope, $this->operations, $this->note, $this->every, $unit, $cost);
+        return new self($this->max, $this->window, $this->scope, $this->operations, $this->note, $this->every, $unit, $cost, $this->per);
+    }
+
+    /**
+     * The same limit counted per resource of a kind: each parcel, each
+     * envelope apart. RateLimit::perDay(6, 'trackParcel')->perResource('parcel').
+     */
+    public function perResource(string $kind): self
+    {
+        return new self($this->max, $this->window, Scope::Resource, $this->operations, $this->note, $this->every, $this->unit, $this->cost, $kind);
     }
 
     public function appliesTo(string $operation): bool
@@ -116,27 +142,28 @@ final readonly class RateLimit
         return $this->window->seconds() * $this->every;
     }
 
-    /** Whether it counts the same calls as another, in the same way: the same window, scope, operations, unit and costs. */
+    /** Whether it counts the same calls as another, in the same way: the same window, scope (and kind of resource), operations, unit and costs. */
     public function sameCountAs(self $other): bool
     {
         return $this->window === $other->window && $this->every === $other->every && $this->scope === $other->scope
-            && $this->operations === $other->operations && $this->unit === $other->unit && $this->cost === $other->cost;
+            && $this->per === $other->per && $this->operations === $other->operations && $this->unit === $other->unit && $this->cost === $other->cost;
     }
 
     /**
      * Its name in a limiter's store: "720/day/application/journeys"; a
      * multiple of the window, a unit and costs are written only when given
-     * ("500/5minute/application/*", "10000/day/application/live/units/live=3").
+     * ("500/5minute/application/*", "10000/day/application/live/units/live=3");
+     * counted per resource, the scope names its kind ("6/day/resource:parcel/trackParcel").
      */
     public function id(): string
     {
         $costs = implode(',', array_map(static fn (string $operation, int $amount) => $operation.'='.$amount, array_keys($this->cost), $this->cost));
 
-        return $this->max.'/'.(1 === $this->every ? '' : $this->every).$this->window->value.'/'.$this->scope->value.'/'.([] === $this->operations ? '*' : implode('+', $this->operations))
+        return $this->max.'/'.(1 === $this->every ? '' : $this->every).$this->window->value.'/'.$this->scope->value.(null === $this->per ? '' : ':'.$this->per).'/'.([] === $this->operations ? '*' : implode('+', $this->operations))
             .(Unit::Requests === $this->unit ? '' : '/'.$this->unit->value).('' === $costs ? '' : '/'.$costs);
     }
 
-    /** "720 a day for journeys", "1200 an hour", "500 every 5 minutes", "10000 units a day (live costs 3)" */
+    /** "720 a day for journeys", "1200 an hour", "500 every 5 minutes", "10000 units a day (live costs 3)", "6 a day for trackParcel per parcel" */
     public function describe(): string
     {
         $costs = implode(', ', array_map(static fn (string $operation, int $amount) => $operation.' costs '.$amount, array_keys($this->cost), $this->cost));
@@ -144,14 +171,14 @@ final readonly class RateLimit
         return $this->max.(Unit::Requests === $this->unit ? '' : ' '.$this->unit->value)
             .(1 === $this->every ? (Window::Hour === $this->window ? ' an ' : ' a ').$this->window->value : ' every '.$this->every.' '.$this->window->value.'s')
             .([] === $this->operations ? '' : ' for '.implode(', ', $this->operations))
-            .(Scope::Application === $this->scope ? '' : ' per '.$this->scope->value)
+            .(Scope::Application === $this->scope ? '' : ' per '.($this->per ?? $this->scope->value))
             .('' === $costs ? '' : ' ('.$costs.')');
     }
 
     /** @param array<string, mixed> $data */
     public static function fromArray(array $data, string $path = 'rateLimits[]'): self
     {
-        Read::only($data, ['max', 'window', 'every', 'scope', 'operations', 'unit', 'cost', 'note'], $path);
+        Read::only($data, ['max', 'window', 'every', 'scope', 'per', 'operations', 'unit', 'cost', 'note'], $path);
         $max = Read::int($data['max'] ?? null, $path.'.max') ?? throw InvalidPolicyException::field($path.'.max', 'an integer of 0 or more', null);
         $cost = [];
         foreach (Read::object($data['cost'] ?? null, $path.'.cost') as $operation => $amount) {
@@ -167,16 +194,20 @@ final readonly class RateLimit
             Read::int($data['every'] ?? null, $path.'.every', 1) ?? 1,
             Read::enum($data['unit'] ?? null, $path.'.unit', Unit::class, Unit::Requests),
             $cost,
+            Read::string($data['per'] ?? null, $path.'.per'),
         );
     }
 
     /**
-     * The schema's shape; "cost" null when every operation costs 1.
+     * The schema's shape; "cost" null when every operation costs 1, "per"
+     * only for a limit counted per resource.
      *
-     * @return array{max: int, window: string, every: int, scope: string, operations: list<string>, unit: string, cost: ?array<string, int>, note: ?string}
+     * @return array{max: int, window: string, every: int, scope: string, per?: string, operations: list<string>, unit: string, cost: ?array<string, int>, note: ?string}
      */
     public function toArray(): array
     {
-        return ['max' => $this->max, 'window' => $this->window->value, 'every' => $this->every, 'scope' => $this->scope->value, 'operations' => $this->operations, 'unit' => $this->unit->value, 'cost' => [] === $this->cost ? null : $this->cost, 'note' => $this->note];
+        $scope = null === $this->per ? ['scope' => $this->scope->value] : ['scope' => $this->scope->value, 'per' => $this->per];
+
+        return ['max' => $this->max, 'window' => $this->window->value, 'every' => $this->every, ...$scope, 'operations' => $this->operations, 'unit' => $this->unit->value, 'cost' => [] === $this->cost ? null : $this->cost, 'note' => $this->note];
     }
 }

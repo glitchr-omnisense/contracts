@@ -45,7 +45,8 @@ not know is refused too, so a typo does not pass silently.
 | `rateLimits[].unit` | what `max` counts: `requests` (default), `content-bytes`, `characters`, `units`, `points` |
 | `rateLimits[].cost` | what one call of an operation consumes, in the unit: `{"searchVideos": 100}`; 1 when not named, 0 for a free one; `null`: 1 each |
 | `concurrency` | the most requests in flight at once (IGDB: 8); `null`: not said. Declared and exported, not enforced |
-| `rateLimits[].scope` | `application` (default), `key`, `client-ip`, `user` |
+| `rateLimits[].scope` | `application` (default), `key`, `client-ip`, `user`, `resource` |
+| `rateLimits[].per` | with `"scope": "resource"` only, and then required: the kind of resource each one counts apart (`parcel`, `envelope`, `zone`); such a limit names its `operations` |
 | `rateLimits[].operations` | the family's operations it counts (its contract methods: `journeys`, `departures`...); empty: all |
 | permissions (`commercial`, `storage`, `redistribution`, `caching.permission`) | `allowed`, `unknown`, `contract`, `forbidden` |
 | `openSourceRequired` | `true`, `false`, `null` (unknown) |
@@ -124,13 +125,54 @@ $guard->call('journeys', fn () => $provider->journeys($query));
 - `record($operation, $context)` after, whether the call succeeded or failed (the provider
   counted it too);
 - `$context`: `key`, `ip`, `user` for limits scoped so; one not given counts in a shared
-  bucket - the strictest reading;
+  bucket - the strictest reading; `resource` for limits counted per resource (below);
 - `remaining($operation)`: the calls left before a limit is reached, `null` when none counts it;
 - `cacheTtl(?int $wanted)`: `0` when caching is forbidden or needs a contract, the shorter of the
   wanted and the maximum otherwise; unknown terms do not shorten it.
 
 A family passes its own subclass of `UsageLimitReached` (`exception:`), so that its exception
 interface catches it too.
+
+### Limits per resource
+
+Some terms count per object, not per caller: Mondial Relay tracks a parcel 4 to 6 times a day
+at most, DocuSign polls an envelope once per 15 minutes. `"scope": "resource"` with `per`
+naming the kind counts each one apart; the provider names the one a call is about in the
+context, as it would a key:
+
+```json
+{"max": 6, "window": "day", "scope": "resource", "per": "parcel", "operations": ["trackParcel"]}
+```
+
+```php
+$tracking->call('trackParcel', fn () => $this->api->track($number), ['resource' => $number]);
+// an operation about resources of two kinds counted so: ['resource' => ['zone' => $z, 'record' => $r]]
+```
+
+A call that names no resource for such a limit throws `ResourceNotNamed` (a `LogicException`,
+an `ExceptionInterface`) before anything is sent. Not a shared bucket, as for a key, client or
+user not given: six tracking calls a day for all parcels together would refuse the seventh
+parcel's first call, which the terms allow. Not skipped either: the terms would be broken
+without a sign. Only the code that makes the call knows the resource, so a missing one is a
+mistake there, said the first time a test runs it. `remaining()` reads such a limit only when
+the context names the resource. A per-resource limit must name its operations: no call of
+another operation names the resource.
+
+Where the family's registry guards its operations without a context (most families: the
+typed accessors pass none), the provider counts the request itself, under an operation of its
+own (`trackParcel`, `pollEnvelope`, as `token` for a token request), through a guard that
+holds the per-resource limits alone, so that no other limit counts the same request twice:
+
+```php
+// the factory
+new TrackingAction($c->guard(UsagePolicy::fromFile(__DIR__.'/policy.json'))->perResource());
+```
+
+`PolicyGuard::perResource()` is the same guard (limiter, wait, exception) over the policy's
+limits counted per resource; it counts with the registry's guard in the same limiter. A
+package that must also load with an older omnisense/contracts (before `Scope::Resource`) reads
+its policy.json without its per-resource limits there (`Scope::tryFrom('resource')` is null):
+an older kernel refuses the unknown scope.
 
 ### Units and costs
 
@@ -200,6 +242,18 @@ public function records(string $zone): \Generator
     }
 }
 ```
+
+`PolicyGuard::pages()` is that loop: the first page fetched as it is, then `$next` given each
+page read answers the fetch of the next one (or null: the last answer is never counted as a
+request), each through `call()`:
+
+```php
+foreach ($this->guard->pages('records', fn () => $this->client->get($first), fn (Data $page) => null === ($url = $page->string('next')) ? null : fn () => $this->client->get($url)) as $page) {
+    yield from $page->list('result');
+}
+```
+
+A package that must load with an older omnisense/contracts writes the loop with `call()`.
 
 `Config::guard()` runs the policy given under the site's `plan` and `policy` options, as the
 registry's guard does, in the same limiter (the registry's; outside a registry, the one the

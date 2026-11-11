@@ -118,7 +118,8 @@ abstract class BareTestCase extends TestCase
     /**
      * The files loaded from outside the package, the core folders and the
      * packages required - and those Composer includes for every package at
-     * start (autoload "files").
+     * start (autoload "files"; bin/load-all.php leaves out already what the
+     * autoloader had loaded before the package's classes were).
      *
      * @param list<string> $files
      * @param list<string> $eager

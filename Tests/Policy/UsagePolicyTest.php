@@ -109,7 +109,7 @@ final class UsagePolicyTest extends TestCase
         self::assertSame($written([...array_keys(UsagePolicy::unknown('x')->toArray()), 'plans', 'plan']), $written(array_values(array_diff(array_keys(self::at($schema, 'properties')), ['$schema']))), 'plans and plan are written only when set');
         self::assertSame(array_keys((new Rights(retention: new Retention(1)))->toArray()), array_keys(self::at($schema, 'properties', 'rights', 'properties')));
         self::assertSame(array_keys(UsagePolicy::unknown('x')->provenance->toArray()), array_keys(self::at($schema, 'properties', 'provenance', 'properties')));
-        self::assertSame(array_keys(RateLimit::perDay(1)->toArray()), array_keys(self::at($schema, '$defs', 'rateLimit', 'properties')));
+        self::assertSame(array_keys(RateLimit::perDay(1, 'track')->perResource('parcel')->toArray()), array_keys(self::at($schema, '$defs', 'rateLimit', 'properties')), 'per is written only for a limit counted per resource');
     }
 
     /** @return array<mixed> */

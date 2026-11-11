@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+What the family migrations still lacked (round 4). Every policy.json written so far reads as
+before; `RateLimit::toArray()` writes `per` only for a limit counted per resource.
+
+- Limits per resource: `Scope::Resource` (`"scope": "resource"`) and `RateLimit::$per`, the kind
+  of resource each one counts apart (`"per": "parcel"`, `"envelope"`, `"zone"`; lower case),
+  required with that scope and refused with any other; such a limit names its operations.
+  `RateLimit::perResource($kind)`; `id()` writes the scope as `resource:<kind>`, `describe()`
+  says "per parcel". The guard's context takes `resource`: the key of the resource the call is
+  about, or a map of kind to key. A call that names none for such a limit throws
+  `Policy\ResourceNotNamed` (a `LogicException` and an `ExceptionInterface`) before anything is
+  sent, rather than one shared bucket (which would refuse the next resource's calls) or no count
+  (which would let the terms be broken); `remaining()` reads such a limit only when the
+  resource is named. `PolicyGuard::perResource()`: the same guard over the per-resource limits
+  alone, for a provider that counts the request itself under an operation of its own while the
+  registry's guard counts the family's operation. The JSON Schema: `resource`, `per`, the
+  conditions between them. docs/policies.md (Limits per resource). `PolicyGuard::record()` no
+  longer asks the limiter for a limit the call consumes nothing of.
+- `PolicyGuard::pages($operation, $first, $next, $context)`: a listing's pages fetched as they
+  are read, each after the first through `call()`; `$next` answers the next page's fetch or
+  null, so the last answer is never counted as a request.
+- `bin/load-all.php` (the bare check's child process) reports the files and classes loading the
+  package brought in, not those Composer's autoloader had loaded when it was required: in a
+  family harness where another package autoloads files eagerly (google/apiclient in
+  omnidrive's), `BareTest` counted them as outside the package. `eager` still lists Composer's
+  files. Tests/Testing/LoadAllTest.
+
 Writes sent once (backward compatible: nothing calls it until a family does).
 
 - `Http\NoRetry`: the HTTP client a factory is given, kept from replaying a request. Symfony's
