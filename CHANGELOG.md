@@ -22,6 +22,10 @@ before; `RateLimit::toArray()` writes `per` only for a limit counted per resourc
 - `PolicyGuard::pages($operation, $first, $next, $context)`: a listing's pages fetched as they
   are read, each after the first through `call()`; `$next` answers the next page's fetch or
   null, so the last answer is never counted as a request.
+- `PolicyGuard::cacheTtl()` is never longer than `rights.retention`'s `maxAge`: a cached answer
+  is a copy, kept no longer than the data may be (a policy without a retention gives what it did).
+  The retention can then hold a provider's "kept three months" alone, without the same figure as
+  `caching.maxTtl` (omnisign/dossierfacile, omnishow/youtube).
 - `bin/load-all.php` (the bare check's child process) reports the files and classes loading the
   package brought in, not those Composer's autoloader had loaded when it was required: in a
   family harness where another package autoloads files eagerly (google/apiclient in

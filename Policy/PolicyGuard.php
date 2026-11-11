@@ -209,11 +209,15 @@ final class PolicyGuard
     /**
      * The time to live the terms allow an answer: 0 when it may not be
      * cached, the shorter of the one wanted and the policy's maximum
-     * otherwise (Caching::ttl()).
+     * otherwise (Caching::ttl()) - and never longer than the data may be
+     * kept at all (rights.retention's maxAge): a cached answer is a copy.
      */
     public function cacheTtl(?int $wanted = null): ?int
     {
-        return $this->policy->rights->caching->ttl($wanted);
+        $ttl = $this->policy->rights->caching->ttl($wanted);
+        $kept = $this->policy->rights->retention?->maxAge;
+
+        return null === $kept ? $ttl : min($ttl ?? $kept, $kept);
     }
 
     public function mayCache(): bool

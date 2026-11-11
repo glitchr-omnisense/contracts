@@ -9,6 +9,7 @@ use Omnisense\Contracts\Policy\InMemoryRateLimiter;
 use Omnisense\Contracts\Policy\PolicyGuard;
 use Omnisense\Contracts\Policy\RateLimit;
 use Omnisense\Contracts\Policy\RateLimitHeaders;
+use Omnisense\Contracts\Policy\Retention;
 use Omnisense\Contracts\Policy\Scope;
 use Omnisense\Contracts\Policy\UsageLimitReached;
 use Omnisense\Contracts\Policy\UsagePolicy;
@@ -147,6 +148,18 @@ final class PolicyGuardTest extends TestCase
         self::assertSame(0, $forbidden->cacheTtl(60));
         self::assertFalse($forbidden->mayCache());
         self::assertSame(60, (new PolicyGuard(UsagePolicy::unknown('x')))->cacheTtl(60), 'unknown terms do not shorten it');
+    }
+
+    public function testNoCachedAnswerOutlivesTheRetention(): void
+    {
+        $kept = new PolicyGuard(UsagePolicy::builder('x')->caching(new Caching())->retention(new Retention(7689600, 'a tenant\'s file'))->build());
+
+        self::assertSame(7689600, $kept->cacheTtl(), 'no maximum of its own: the retention\'s');
+        self::assertSame(7689600, $kept->cacheTtl(86400 * 365));
+        self::assertSame(60, $kept->cacheTtl(60));
+        self::assertSame(3600, (new PolicyGuard(UsagePolicy::builder('x')->caching(Caching::upTo(3600))->retention(new Retention(7689600))->build()))->cacheTtl());
+        self::assertSame(0, (new PolicyGuard(UsagePolicy::builder('x')->caching(Caching::forbidden())->retention(new Retention(60))->build()))->cacheTtl());
+        self::assertFalse((new PolicyGuard(UsagePolicy::builder('x')->retention(new Retention(0))->build()))->mayCache(), 'kept not at all, cached not at all');
     }
 
     public function testAFamilyThrowsItsOwnSubclass(): void

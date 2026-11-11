@@ -128,7 +128,8 @@ $guard->call('journeys', fn () => $provider->journeys($query));
   bucket - the strictest reading; `resource` for limits counted per resource (below);
 - `remaining($operation)`: the calls left before a limit is reached, `null` when none counts it;
 - `cacheTtl(?int $wanted)`: `0` when caching is forbidden or needs a contract, the shorter of the
-  wanted and the maximum otherwise; unknown terms do not shorten it.
+  wanted and the maximum otherwise, and never longer than `rights.retention`'s `maxAge` (a cached
+  answer is a copy); unknown terms do not shorten it.
 
 A family passes its own subclass of `UsageLimitReached` (`exception:`), so that its exception
 interface catches it too.
