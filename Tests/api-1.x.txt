@@ -297,7 +297,7 @@ Policy\UsagePolicy::$provider: readonly string
 Policy\UsagePolicy::$rateLimits: readonly ?array
 Policy\UsagePolicy::$requirements: readonly Policy\Requirements
 Policy\UsagePolicy::$rights: readonly Policy\Rights
-Policy\UsagePolicy::SCHEMA = "/app/Policy/../resources/usage-policy.schema.json"
+Policy\UsagePolicy::SCHEMA = "<package>/Policy/../resources/usage-policy.schema.json"
 Policy\UsagePolicy::UNNAMED = "(unnamed)"
 Policy\UsagePolicy::__construct(string $provider, ?array $rateLimits = null, Policy\Rights $rights = new Policy\Rights(), Policy\Requirements $requirements = new Policy\Requirements(), Policy\Provenance $provenance = new Policy\Provenance(), ?int $concurrency = null, ?Policy\Plans $plans = null, ?string $plan = null) [public]
 Policy\UsagePolicy::builder(string $provider): Policy\PolicyBuilder [public static]

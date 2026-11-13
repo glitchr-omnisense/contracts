@@ -147,6 +147,8 @@ final class ApiSurfaceTest extends TestCase
         return match (true) {
             $value instanceof \UnitEnum => self::short($value::class).'::'.$value->name,
             \is_object($value) => 'new '.self::short($value::class).'()',
+            // A path built from __DIR__ depends on where the package is installed: only its place in the package is frozen.
+            \is_string($value) && str_starts_with($value, \dirname(__DIR__).'/') => (string) json_encode('<package>'.substr($value, \strlen(\dirname(__DIR__))), \JSON_UNESCAPED_SLASHES),
             default => (string) json_encode($value, \JSON_UNESCAPED_SLASHES),
         };
     }
