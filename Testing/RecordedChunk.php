@@ -4,7 +4,11 @@ namespace Omnisense\Contracts\Testing;
 
 use Symfony\Contracts\HttpClient\ChunkInterface;
 
-/** A piece of a RecordedResponse, as RecordedHttpClient::stream() yields it: the first (headers), the body, the last. */
+/**
+ * A piece of a RecordedResponse, as RecordedHttpClient::stream() yields it: the first (headers), the body, the last.
+ *
+ * @internal built by RecordedStream; read it as Symfony's ChunkInterface
+ */
 final class RecordedChunk implements ChunkInterface
 {
     public function __construct(private readonly string $content, private readonly int $offset, private readonly bool $first = false, private readonly bool $last = false)

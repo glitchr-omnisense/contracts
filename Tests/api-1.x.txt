@@ -1,0 +1,423 @@
+Exception\ExceptionInterface: interface implements Stringable, Throwable
+Exception\InvalidConfigException: class extends InvalidArgumentException implements Exception\ExceptionInterface, Stringable, Throwable
+Exception\NotSupportedException: class extends LogicException implements Exception\ExceptionInterface, Stringable, Throwable
+Exception\NotSupportedException::capability(object $provider, string $name, string $capability): static [public static]
+Exception\ProviderException: class extends RuntimeException implements Exception\ExceptionInterface, Stringable, Throwable
+Exception\ProviderException::answered(string $provider, string $what, string|int $status, string $detail = ""): static [public static]
+Exception\ProviderException::status(): int [public]
+Exception\UnreachableException: class extends RuntimeException implements Exception\ExceptionInterface, Stringable, Throwable
+Http\Answer: readonly class
+Http\Answer::$body: readonly string
+Http\Answer::$headers: readonly array
+Http\Answer::$status: readonly int
+Http\Answer::$url: readonly string
+Http\Answer::__construct(int $status, array $headers, string $body, string $url) [public final]
+Http\Answer::header(string $name): ?string [public]
+Http\Answer::json(string $class = "Omnisense\\Contracts\\Http\\Data"): Http\Data [public]
+Http\Data: readonly class
+Http\Data::__construct(array $values) [public final]
+Http\Data::bool(string|int $key): ?bool [public]
+Http\Data::data(string|int $key): static [public]
+Http\Data::date(string|int $key, ?string $format = null): ?DateTimeImmutable [public]
+Http\Data::dateTime(string|int $key): ?DateTimeImmutable [public]
+Http\Data::duration(string|int $key): ?int [public]
+Http\Data::float(string|int $key): ?float [public]
+Http\Data::get(string|int $key): mixed [public]
+Http\Data::has(string|int $key): bool [public]
+Http\Data::int(string|int $key): ?int [public]
+Http\Data::items(): array [public]
+Http\Data::keys(): array [public]
+Http\Data::list(string|int $key): array [public]
+Http\Data::of(mixed $value): static [public static]
+Http\Data::string(string|int $key): ?string [public]
+Http\Data::strings(string|int $key, ?string $field = null): array [public]
+Http\Data::toArray(): array [public]
+Http\JsonClient: class
+Http\JsonClient::$provider: protected readonly string
+Http\JsonClient::__construct(Symfony\Contracts\HttpClient\HttpClientInterface $http, string $provider, array $headers = [], ?Policy\Backoff $backoff = null) [public]
+Http\JsonClient::answered(string $what, int $status, string $detail): Throwable [protected]
+Http\JsonClient::bytes(string $url, array $query = [], array $headers = []): ?string [public]
+Http\JsonClient::data(array $data): Http\Data [protected]
+Http\JsonClient::decode(string $body, string $what, int $status): Http\Data [protected]
+Http\JsonClient::get(string $url, array $query = [], array $headers = []): ?Http\Data [public]
+Http\JsonClient::raw(string $method, string $url, array $options = [], array $headers = [], array $pass = [404]): Http\Answer [public]
+Http\JsonClient::reason(string $message): string [public static]
+Http\JsonClient::request(string $method, string $url, array $options = [], array $headers = []): ?Http\Data [public]
+Http\JsonClient::unreachable(string $message, Throwable $previous): Throwable [protected]
+Http\NoRetry: final class
+Http\NoRetry::SAFE_METHODS = ["GET","HEAD","OPTIONS"]
+Http\NoRetry::forWrites(Symfony\Contracts\HttpClient\HttpClientInterface $http): Symfony\Contracts\HttpClient\HttpClientInterface [public static]
+Http\NoRetry::isTestClient(Symfony\Contracts\HttpClient\HttpClientInterface $http): bool [public static]
+Http\NoRetry::of(Symfony\Contracts\HttpClient\HttpClientInterface $http): Symfony\Contracts\HttpClient\HttpClientInterface [public static]
+Http\Redaction: class
+Http\Redaction::MASK = "***"
+Http\Redaction::copy(Throwable $failure, array $secrets = []): Throwable [public static]
+Http\Redaction::secrets(string $url, array $options = []): array [public static]
+Http\Redaction::sensitive(string $name): bool [public static]
+Http\Redaction::text(string $text, array $secrets = []): string [public static]
+Http\Redaction::withoutArguments(Throwable $failure): Throwable [public static]
+Policy\Allowance: final readonly class
+Policy\Allowance::$remaining: readonly int
+Policy\Allowance::$resetsIn: readonly int
+Policy\Allowance::__construct(int $remaining, int $resetsIn) [public]
+Policy\Allowance::exhausted(): bool [public]
+Policy\Attribution: final readonly class
+Policy\Attribution::$required: readonly bool
+Policy\Attribution::$text: readonly ?string
+Policy\Attribution::$url: readonly ?string
+Policy\Attribution::$where: readonly array
+Policy\Attribution::WHERE = ["display","map","credits","source"]
+Policy\Attribution::__construct(bool $required = false, ?string $text = null, ?string $url = null, array $where = []) [public]
+Policy\Attribution::fromArray(array $data): self [public static]
+Policy\Attribution::toArray(): array [public]
+Policy\Backoff: final class
+Policy\Backoff::__construct(Policy\RateLimiterInterface $limiter, string $provider, string $exception = "Omnisense\\Contracts\\Policy\\UsageLimitReached", ?Policy\LegacyReset $legacy = null) [public]
+Policy\Backoff::clear(): void [public]
+Policy\Backoff::exception(): string [public]
+Policy\Backoff::hold(int $seconds, string $reason): Policy\UsageLimitReached [public]
+Policy\Backoff::left(): int [public]
+Policy\Backoff::observe(int $status, array $headers, ?int $now = null): void [public]
+Policy\Backoff::withLegacyHeaders(Policy\LegacyReset $reset): self [public]
+Policy\Caching: final readonly class
+Policy\Caching::$maxTtl: readonly ?int
+Policy\Caching::$permission: readonly Policy\Permission
+Policy\Caching::__construct(Policy\Permission $permission = Policy\Permission::Unknown, ?int $maxTtl = null) [public]
+Policy\Caching::forbidden(): self [public static]
+Policy\Caching::fromArray(array $data): self [public static]
+Policy\Caching::toArray(): array [public]
+Policy\Caching::ttl(?int $wanted = null): ?int [public]
+Policy\Caching::upTo(int $seconds): self [public static]
+Policy\ConsumingRateLimiterInterface: interface implements Policy\RateLimiterInterface
+Policy\ConsumingRateLimiterInterface::consume(string $key, Policy\RateLimit $limit, int $amount): void [public]
+Policy\DeclaredBy: enum implements BackedEnum, UnitEnum
+Policy\DeclaredBy::$name: readonly string
+Policy\DeclaredBy::$value: readonly string
+Policy\DeclaredBy::Maintainer (case)
+Policy\DeclaredBy::Provider (case)
+Policy\DeclaredBy::Site (case)
+Policy\DeclaresUsagePolicyInterface: interface
+Policy\DeclaresUsagePolicyInterface::usagePolicy(): Policy\UsagePolicy [public]
+Policy\InMemoryRateLimiter: final class implements Policy\ConsumingRateLimiterInterface, Policy\RateLimiterInterface
+Policy\InMemoryRateLimiter::__construct(?Closure $clock = null) [public]
+Policy\InMemoryRateLimiter::allowance(string $key, Policy\RateLimit $limit): Policy\Allowance [public]
+Policy\InMemoryRateLimiter::block(string $key, int $seconds): void [public]
+Policy\InMemoryRateLimiter::blocked(string $key): int [public]
+Policy\InMemoryRateLimiter::consume(string $key, Policy\RateLimit $limit, int $amount): void [public]
+Policy\InMemoryRateLimiter::hit(string $key, Policy\RateLimit $limit): void [public]
+Policy\InvalidPolicyException: final class extends Exception\InvalidConfigException implements Exception\ExceptionInterface, Stringable, Throwable
+Policy\InvalidPolicyException::field(string $path, string $expected, mixed $given): self [public static]
+Policy\InvalidPolicyException::loosened(string $provider, string $field, string $declared, string $given): self [public static]
+Policy\LegacyReset: enum implements BackedEnum, UnitEnum
+Policy\LegacyReset::$name: readonly string
+Policy\LegacyReset::$value: readonly string
+Policy\LegacyReset::Epoch (case)
+Policy\LegacyReset::Seconds (case)
+Policy\Permission: enum implements BackedEnum, UnitEnum
+Policy\Permission::$name: readonly string
+Policy\Permission::$value: readonly string
+Policy\Permission::Allowed (case)
+Policy\Permission::Contract (case)
+Policy\Permission::Forbidden (case)
+Policy\Permission::Unknown (case)
+Policy\Permission::isStricterThan(self $other): bool [public]
+Policy\Permission::strictness(): int [public]
+Policy\Plan: final readonly class
+Policy\Plan::$concurrency: readonly ?int
+Policy\Plan::$note: readonly ?string
+Policy\Plan::$rateLimits: readonly ?array
+Policy\Plan::$source: readonly string
+Policy\Plan::$verifiedAt: readonly string
+Policy\Plan::__construct(string $source, string $verifiedAt, ?array $rateLimits = null, ?int $concurrency = null, ?string $note = null, string $path = "plans.plans[]") [public]
+Policy\Plan::fromArray(array $data, string $path = "plans.plans[]"): self [public static]
+Policy\Plan::toArray(): array [public]
+Policy\Plans: final readonly class
+Policy\Plans::$default: readonly string
+Policy\Plans::$plans: readonly array
+Policy\Plans::__construct(string $default, array $plans) [public]
+Policy\Plans::apply(Policy\UsagePolicy $policy, ?string $plan = null): Policy\UsagePolicy [public]
+Policy\Plans::check(?string $plan): string [public]
+Policy\Plans::fromArray(array $data, string $path = "plans"): self [public static]
+Policy\Plans::fromFile(string $path): self [public static]
+Policy\Plans::fromJson(string $json): self [public static]
+Policy\Plans::get(?string $plan = null): Policy\Plan [public]
+Policy\Plans::names(): array [public]
+Policy\Plans::toArray(): array [public]
+Policy\PolicyBuilder: final class
+Policy\PolicyBuilder::__construct(string $provider) [public]
+Policy\PolicyBuilder::attribution(string $text, ?string $url = null, string ...$where): self [public]
+Policy\PolicyBuilder::build(): Policy\UsagePolicy [public]
+Policy\PolicyBuilder::caching(Policy\Caching $caching): self [public]
+Policy\PolicyBuilder::commercial(Policy\Permission $permission): self [public]
+Policy\PolicyBuilder::concurrency(int $max): self [public]
+Policy\PolicyBuilder::licence(string $licence): self [public]
+Policy\PolicyBuilder::limit(Policy\RateLimit ...$limits): self [public]
+Policy\PolicyBuilder::noLimits(): self [public]
+Policy\PolicyBuilder::openSourceRequired(bool $required = true): self [public]
+Policy\PolicyBuilder::plans(Policy\Plans $plans): self [public]
+Policy\PolicyBuilder::provenance(?string $terms = null, ?string $policy = null, ?string $verifiedAt = null, Policy\DeclaredBy $declaredBy = Policy\DeclaredBy::Maintainer, ?string $contact = null, ?string $notes = null): self [public]
+Policy\PolicyBuilder::redistribution(Policy\Permission $permission): self [public]
+Policy\PolicyBuilder::requireKey(bool $required = true): self [public]
+Policy\PolicyBuilder::requireUserAgent(?string $pattern = null): self [public]
+Policy\PolicyBuilder::retention(Policy\Retention $retention): self [public]
+Policy\PolicyBuilder::storage(Policy\Permission $permission): self [public]
+Policy\PolicyExport: final class
+Policy\PolicyExport::entries(): array [public]
+Policy\PolicyExport::folders(string ...$folders): self [public]
+Policy\PolicyExport::installed(string $installedJson): self [public]
+Policy\PolicyExport::toJson(): string [public]
+Policy\PolicyGuard: final class
+Policy\PolicyGuard::__construct(Policy\UsagePolicy $policy, Policy\RateLimiterInterface $limiter = new Policy\InMemoryRateLimiter(), ?Policy\Backoff $backoff = null, string $exception = "Omnisense\\Contracts\\Policy\\UsageLimitReached") [public]
+Policy\PolicyGuard::backoff(): Policy\Backoff [public]
+Policy\PolicyGuard::cacheTtl(?int $wanted = null): ?int [public]
+Policy\PolicyGuard::call(string $operation, callable $call, array $context = [], Closure|array $amounts = []): mixed [public]
+Policy\PolicyGuard::check(string $operation, array $context = [], array $amounts = []): void [public]
+Policy\PolicyGuard::mayCache(): bool [public]
+Policy\PolicyGuard::pages(string $operation, callable $first, callable $next, array $context = []): Generator [public]
+Policy\PolicyGuard::perResource(): self [public]
+Policy\PolicyGuard::policy(): Policy\UsagePolicy [public]
+Policy\PolicyGuard::record(string $operation, array $context = [], array $amounts = []): void [public]
+Policy\PolicyGuard::remaining(string $operation, array $context = []): ?int [public]
+Policy\Provenance: final readonly class
+Policy\Provenance::$contact: readonly ?string
+Policy\Provenance::$declaredBy: readonly Policy\DeclaredBy
+Policy\Provenance::$notes: readonly ?string
+Policy\Provenance::$policy: readonly ?string
+Policy\Provenance::$terms: readonly ?string
+Policy\Provenance::$verifiedAt: readonly ?string
+Policy\Provenance::__construct(?string $terms = null, ?string $policy = null, ?string $verifiedAt = null, Policy\DeclaredBy $declaredBy = Policy\DeclaredBy::Maintainer, ?string $contact = null, ?string $notes = null) [public]
+Policy\Provenance::fromArray(array $data): self [public static]
+Policy\Provenance::toArray(): array [public]
+Policy\RateLimit: final readonly class
+Policy\RateLimit::$cost: readonly array
+Policy\RateLimit::$every: readonly int
+Policy\RateLimit::$max: readonly int
+Policy\RateLimit::$note: readonly ?string
+Policy\RateLimit::$operations: readonly array
+Policy\RateLimit::$per: readonly ?string
+Policy\RateLimit::$scope: readonly Policy\Scope
+Policy\RateLimit::$unit: readonly Policy\Unit
+Policy\RateLimit::$window: readonly Policy\Window
+Policy\RateLimit::__construct(int $max, Policy\Window $window, Policy\Scope $scope = Policy\Scope::Application, array $operations = [], ?string $note = null, int $every = 1, Policy\Unit $unit = Policy\Unit::Requests, array $cost = [], ?string $per = null) [public]
+Policy\RateLimit::appliesTo(string $operation): bool [public]
+Policy\RateLimit::cost(string $operation): int [public]
+Policy\RateLimit::counting(Policy\Unit $unit, array $cost = []): self [public]
+Policy\RateLimit::describe(): string [public]
+Policy\RateLimit::every(int $every): self [public]
+Policy\RateLimit::fromArray(array $data, string $path = "rateLimits[]"): self [public static]
+Policy\RateLimit::id(): string [public]
+Policy\RateLimit::perDay(int $max, string ...$operations): self [public static]
+Policy\RateLimit::perHour(int $max, string ...$operations): self [public static]
+Policy\RateLimit::perMinute(int $max, string ...$operations): self [public static]
+Policy\RateLimit::perMonth(int $max, string ...$operations): self [public static]
+Policy\RateLimit::perResource(string $kind): self [public]
+Policy\RateLimit::perSecond(int $max, string ...$operations): self [public static]
+Policy\RateLimit::sameCountAs(self $other): bool [public]
+Policy\RateLimit::seconds(): int [public]
+Policy\RateLimit::toArray(): array [public]
+Policy\RateLimitHeaders: final class
+Policy\RateLimitHeaders::legacyWait(int $status, array $headers, Policy\LegacyReset $reset, ?int $now = null): ?int [public static]
+Policy\RateLimitHeaders::rateLimit(?string $value): array [public static]
+Policy\RateLimitHeaders::rateLimitPolicy(?string $value): array [public static]
+Policy\RateLimitHeaders::retryAfter(?string $value, ?int $now = null): ?int [public static]
+Policy\RateLimitHeaders::wait(int $status, array $headers, ?int $now = null, ?Policy\LegacyReset $legacy = null): ?int [public static]
+Policy\RateLimiterInterface: interface
+Policy\RateLimiterInterface::allowance(string $key, Policy\RateLimit $limit): Policy\Allowance [public]
+Policy\RateLimiterInterface::block(string $key, int $seconds): void [public]
+Policy\RateLimiterInterface::blocked(string $key): int [public]
+Policy\RateLimiterInterface::hit(string $key, Policy\RateLimit $limit): void [public]
+Policy\Requirements: final readonly class
+Policy\Requirements::$key: readonly bool
+Policy\Requirements::$userAgent: readonly bool
+Policy\Requirements::$userAgentPattern: readonly ?string
+Policy\Requirements::USER_AGENT_WITH_CONTACT = "~^\\S+/\\S+.*(?:https?://|@)~"
+Policy\Requirements::__construct(bool $key = false, bool $userAgent = false, ?string $userAgentPattern = null) [public]
+Policy\Requirements::acceptsUserAgent(?string $userAgent): bool [public]
+Policy\Requirements::fromArray(array $data): self [public static]
+Policy\Requirements::toArray(): array [public]
+Policy\ResourceNotNamed: final class extends LogicException implements Exception\ExceptionInterface, Stringable, Throwable
+Policy\ResourceNotNamed::$limit: readonly Policy\RateLimit
+Policy\ResourceNotNamed::$operation: readonly string
+Policy\ResourceNotNamed::$provider: readonly string
+Policy\ResourceNotNamed::__construct(string $provider, Policy\RateLimit $limit, string $operation) [public]
+Policy\Retention: final readonly class
+Policy\Retention::$covers: readonly ?string
+Policy\Retention::$maxAge: readonly int
+Policy\Retention::__construct(int $maxAge, ?string $covers = null) [public]
+Policy\Retention::days(int $days, ?string $covers = null): self [public static]
+Policy\Retention::exceededBy(int $seconds): bool [public]
+Policy\Retention::fromArray(array $data): ?self [public static]
+Policy\Retention::toArray(): array [public]
+Policy\Rights: final readonly class
+Policy\Rights::$attribution: readonly Policy\Attribution
+Policy\Rights::$caching: readonly Policy\Caching
+Policy\Rights::$commercial: readonly Policy\Permission
+Policy\Rights::$licence: readonly ?string
+Policy\Rights::$openSourceRequired: readonly ?bool
+Policy\Rights::$redistribution: readonly Policy\Permission
+Policy\Rights::$retention: readonly ?Policy\Retention
+Policy\Rights::$storage: readonly Policy\Permission
+Policy\Rights::__construct(Policy\Permission $commercial = Policy\Permission::Unknown, ?bool $openSourceRequired = null, Policy\Caching $caching = new Policy\Caching(), Policy\Permission $storage = Policy\Permission::Unknown, Policy\Permission $redistribution = Policy\Permission::Unknown, Policy\Attribution $attribution = new Policy\Attribution(), ?string $licence = null, ?Policy\Retention $retention = null) [public]
+Policy\Rights::fromArray(array $data): self [public static]
+Policy\Rights::toArray(): array [public]
+Policy\Scope: enum implements BackedEnum, UnitEnum
+Policy\Scope::$name: readonly string
+Policy\Scope::$value: readonly string
+Policy\Scope::Application (case)
+Policy\Scope::ClientIp (case)
+Policy\Scope::Key (case)
+Policy\Scope::Resource (case)
+Policy\Scope::User (case)
+Policy\Unit: enum implements BackedEnum, UnitEnum
+Policy\Unit::$name: readonly string
+Policy\Unit::$value: readonly string
+Policy\Unit::Characters (case)
+Policy\Unit::ContentBytes (case)
+Policy\Unit::Points (case)
+Policy\Unit::Requests (case)
+Policy\Unit::Units (case)
+Policy\Usage: final readonly class
+Policy\Usage::$commercial: readonly ?bool
+Policy\Usage::$contract: readonly bool
+Policy\Usage::$openSource: readonly ?bool
+Policy\Usage::__construct(?bool $commercial = null, ?bool $openSource = null, bool $contract = false) [public]
+Policy\Usage::fromArray(array $data): self [public static]
+Policy\UsageLimitReached: class extends RuntimeException implements Exception\ExceptionInterface, Stringable, Throwable
+Policy\UsageLimitReached::$limit: readonly ?Policy\RateLimit
+Policy\UsageLimitReached::$provider: readonly ?string
+Policy\UsageLimitReached::$retryAfter: readonly ?int
+Policy\UsageLimitReached::__construct(string $message, ?int $retryAfter = null, ?string $provider = null, ?Policy\RateLimit $limit = null, ?Throwable $previous = null) [public]
+Policy\UsageNotPermitted: final class extends Exception\InvalidConfigException implements Exception\ExceptionInterface, Stringable, Throwable
+Policy\UsageNotPermitted::of(string $provider, array $violations): self [public static]
+Policy\UsagePolicy: final readonly class
+Policy\UsagePolicy::$concurrency: readonly ?int
+Policy\UsagePolicy::$plan: readonly ?string
+Policy\UsagePolicy::$plans: readonly ?Policy\Plans
+Policy\UsagePolicy::$provenance: readonly Policy\Provenance
+Policy\UsagePolicy::$provider: readonly string
+Policy\UsagePolicy::$rateLimits: readonly ?array
+Policy\UsagePolicy::$requirements: readonly Policy\Requirements
+Policy\UsagePolicy::$rights: readonly Policy\Rights
+Policy\UsagePolicy::SCHEMA = "/app/Policy/../resources/usage-policy.schema.json"
+Policy\UsagePolicy::UNNAMED = "(unnamed)"
+Policy\UsagePolicy::__construct(string $provider, ?array $rateLimits = null, Policy\Rights $rights = new Policy\Rights(), Policy\Requirements $requirements = new Policy\Requirements(), Policy\Provenance $provenance = new Policy\Provenance(), ?int $concurrency = null, ?Policy\Plans $plans = null, ?string $plan = null) [public]
+Policy\UsagePolicy::builder(string $provider): Policy\PolicyBuilder [public static]
+Policy\UsagePolicy::described(string $provider, ?string $attribution = null, ?string $licence = null, array $terms = [], bool $keyless = false): self [public static]
+Policy\UsagePolicy::forPlan(?string $plan): self [public]
+Policy\UsagePolicy::fromArray(array $data): self [public static]
+Policy\UsagePolicy::fromFile(string $path): self [public static]
+Policy\UsagePolicy::fromJson(string $json): self [public static]
+Policy\UsagePolicy::knowsLimits(): bool [public]
+Policy\UsagePolicy::limitsFor(string $operation): array [public]
+Policy\UsagePolicy::named(string $provider): self [public]
+Policy\UsagePolicy::tighten(array $site): self [public]
+Policy\UsagePolicy::toArray(): array [public]
+Policy\UsagePolicy::toJson(): string [public]
+Policy\UsagePolicy::unknown(string $provider): self [public static]
+Policy\UsagePolicy::violations(Policy\Usage $usage): array [public]
+Policy\UsagePolicy::withPlans(Policy\Plans $plans): self [public]
+Policy\Window: enum implements BackedEnum, UnitEnum
+Policy\Window::$name: readonly string
+Policy\Window::$value: readonly string
+Policy\Window::Day (case)
+Policy\Window::Hour (case)
+Policy\Window::Minute (case)
+Policy\Window::Month (case)
+Policy\Window::Second (case)
+Policy\Window::seconds(): int [public]
+Provider\CapabilitiesInterface: interface
+Provider\CapabilitiesInterface::contracts(): array [public]
+Provider\CapabilitiesInterface::policy(): Policy\UsagePolicy [public]
+Provider\CapabilitiesInterface::toArray(): array [public]
+Provider\Config: class extends ArrayObject implements ArrayAccess, Countable, IteratorAggregate, Serializable, Traversable
+Provider\Config::PREFIX = "provider"
+Provider\Config::backoff(): ?Policy\Backoff [public]
+Provider\Config::bool(string $key): bool [public]
+Provider\Config::defaults(array $defaults): static [public]
+Provider\Config::float(string $key, float $default = 0): float [public]
+Provider\Config::get(string $key, mixed $default = null): mixed [public]
+Provider\Config::guard(Policy\UsagePolicy $policy): Policy\PolicyGuard [public]
+Provider\Config::int(string $key, int $default = 0): int [public]
+Provider\Config::invalid(string $message): Throwable [protected]
+Provider\Config::key(string $name): string [public]
+Provider\Config::map(string $key): array [public]
+Provider\Config::string(string $key): ?string [public]
+Provider\Config::validateNotEmpty(array $keys): void [public]
+Provider\ProviderFactory: abstract class implements Provider\ProviderFactoryInterface
+Provider\ProviderFactory::configure(Provider\Config $c): void [protected abstract]
+Provider\ProviderFactory::create(array $options = []): Provider\ProviderInterface [public]
+Provider\ProviderFactory::createConfig(array $options = []): Provider\Config [public]
+Provider\ProviderFactory::effectivePolicy(Provider\ProviderInterface $provider, array $policy = [], array $usage = [], ?string $plan = null): Policy\UsagePolicy [public static]
+Provider\ProviderFactory::getName(): string [public]
+Provider\ProviderFactory::guard(Provider\ProviderInterface $provider): ?Policy\PolicyGuard [public]
+Provider\ProviderFactory::limitException(): string [protected]
+Provider\ProviderFactory::make(Provider\Config $c): Provider\ProviderInterface [protected abstract]
+Provider\ProviderFactory::newConfig(array $options): Provider\Config [protected]
+Provider\ProviderFactoryInterface: interface
+Provider\ProviderFactoryInterface::create(array $options = []): Provider\ProviderInterface [public]
+Provider\ProviderFactoryInterface::getName(): string [public]
+Provider\ProviderInterface: interface
+Provider\ProviderInterface::capabilities(): Provider\CapabilitiesInterface [public]
+Provider\ProviderInterface::getName(): string [public]
+Provider\ProviderInterface::getTitle(): string [public]
+Provider\Registry: class
+Provider\Registry::$config: protected readonly array
+Provider\Registry::$factories: protected array
+Provider\Registry::$providers: protected array
+Provider\Registry::PREFIX = "provider"
+Provider\Registry::__construct(iterable $factories, array $config, ?Policy\RateLimiterInterface $limiter = null) [public]
+Provider\Registry::contract(string $name, string $contract, string $capability): object [protected]
+Provider\Registry::factories(): array [public]
+Provider\Registry::factory(string $name): Provider\ProviderFactoryInterface [protected]
+Provider\Registry::get(string $name): Provider\ProviderInterface [public]
+Provider\Registry::guard(string $name): Policy\PolicyGuard [public]
+Provider\Registry::has(string $name): bool [public]
+Provider\Registry::invalid(string $message): Throwable [protected]
+Provider\Registry::limitException(): string [protected]
+Provider\Registry::names(?string $contract = null): array [public]
+Provider\Registry::notSupported(Provider\ProviderInterface $provider, string $name, string $capability): Throwable [protected]
+Provider\Registry::options(string $name): array [public]
+Provider\Registry::policies(): array [public]
+Provider\Registry::policy(string $name): Policy\UsagePolicy [public]
+Testing\BareTestCase: abstract class extends PHPUnit\Framework\TestCase implements Countable, PHPUnit\Framework\Reorderable, PHPUnit\Framework\SelfDescribing, PHPUnit\Framework\Test
+Testing\BareTestCase::AUTOLOAD_ENV = "OMNISENSE_AUTOLOAD"
+Testing\BareTestCase::FOREIGN = "~^(?:Symfony\\\\(?!Contracts\\\\|Polyfill\\\\)|(?:Illuminate|Laravel|Doctrine|Twig|League|GuzzleHttp|Nyholm|Http|Omnibridge|Base|App)\\\\)~"
+Testing\BareTestCase::allowedNamespaces(): array [protected static]
+Testing\BareTestCase::autoload(): string [protected static]
+Testing\BareTestCase::coreDirs(): array [protected static]
+Testing\BareTestCase::dirOf(string $class): string [protected static]
+Testing\BareTestCase::entryClass(): string [protected static abstract]
+Testing\BareTestCase::foreign(array $symbols): array [protected static]
+Testing\BareTestCase::loadAll(array $also = []): array [protected static]
+Testing\BareTestCase::outside(array $files, array $eager): array [protected static]
+Testing\BareTestCase::packageDir(): string [protected static]
+Testing\BareTestCase::php(array $arguments): array [protected static]
+Testing\BareTestCase::requiredPackages(): array [protected static abstract]
+Testing\BareTestCase::testEveryClassLoadsWithTheRequiredPackagesAlone(): void [public]
+Testing\BareTestCase::testTheReportSeesWhatIsLoaded(): void [public]
+Testing\MockHttp: final class
+Testing\MockHttp::$client: readonly Symfony\Component\HttpClient\MockHttpClient
+Testing\MockHttp::$requests: array
+Testing\MockHttp::dump(): string [public]
+Testing\MockHttp::fields(int $index = -1): array [public]
+Testing\MockHttp::header(string $name, int $index = -1): ?string [public]
+Testing\MockHttp::json(int $index = -1): mixed [public]
+Testing\MockHttp::lines(): array [public]
+Testing\MockHttp::request(int $index = -1): array [public]
+Testing\MockHttp::routes(array $routes): self [public static]
+Testing\RecordedHttpClient: class implements Symfony\Contracts\HttpClient\HttpClientInterface
+Testing\RecordedHttpClient::$requests: array
+Testing\RecordedHttpClient::__construct(Closure $answer) [public final]
+Testing\RecordedHttpClient::body(array $options): string [public static]
+Testing\RecordedHttpClient::header(string $name, int $request = -1): ?string [public]
+Testing\RecordedHttpClient::request(string $method, string $url, array $options = []): Symfony\Contracts\HttpClient\ResponseInterface [public]
+Testing\RecordedHttpClient::routes(array $routes): static [public static]
+Testing\RecordedHttpClient::stream(Symfony\Contracts\HttpClient\ResponseInterface|Traversable|array $responses, ?float $timeout = null): Symfony\Contracts\HttpClient\ResponseStreamInterface [public]
+Testing\RecordedHttpClient::withOptions(array $options): static [public]
+Testing\RecordedResponse: class implements Symfony\Contracts\HttpClient\ResponseInterface
+Testing\RecordedResponse::__construct(int $status, string $body, array $headers, string $url) [public]
+Testing\RecordedResponse::cancel(): void [public]
+Testing\RecordedResponse::getContent(bool $throw = true): string [public]
+Testing\RecordedResponse::getHeaders(bool $throw = true): array [public]
+Testing\RecordedResponse::getInfo(?string $type = null): mixed [public]
+Testing\RecordedResponse::getStatusCode(): int [public]
+Testing\RecordedResponse::toArray(bool $throw = true): array [public]

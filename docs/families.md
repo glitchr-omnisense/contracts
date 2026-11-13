@@ -145,9 +145,11 @@ older kernel:
 6. Token requests, further pages and per-resource requests through `Config::guard()` (above). A
    family whose registry builds its own guards overrides `limitException()`; a family's own
    `Config::guard()` override (omniticket's) goes: the kernel's does the same, plus the plan.
-7. Since 1.0.0-rc.1, the fallbacks written for 1568f2c and older kernels
-   (`class_exists(NoRetry::class)`, `\defined(Scope::class.'::Resource')`, the plain `call()` loop
-   instead of `pages()`) can go, with the constraint raised to `^1.0@RC` (`^1.0` once final).
+7. The constraint is `"omnisense/contracts": "^1.0"`. A `@dev` or `@RC` flag only counts in the
+   root project, so a family that keeps one does not install where minimum-stability is stable.
+   The fallbacks written for 1568f2c and older kernels (`class_exists(NoRetry::class)`,
+   `\defined(Scope::class.'::Resource')`, the plain `call()` loop instead of `pages()`) go with
+   it.
 8. PHPStan at max, its baseline empty; decoded answers through `Data`.
 9. The harness mounts the contracts checkout (`OMNISENSE_CONTRACTS`) and runs its tests too; the
    family's `BareTest` extends the kernel's `BareTestCase` (`coreDirs()` with its core).

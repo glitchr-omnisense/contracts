@@ -19,3 +19,31 @@ jobs:
     uses: glitchr-studio/ci/.github/workflows/php-package.yml@main
     with:
       smoke-class: 'Omnisense\Contracts\Provider\Registry'
+
+  # The PHP versions composer.json allows: the package's tests on each, with the highest dependencies
+  # and, on the oldest PHP, the lowest ones too (what a project held back on PHP 8.2 resolves).
+  # PHPStan runs once, in the job above.
+  php-versions:
+    name: PHP ${{ matrix.php }} (${{ matrix.dependencies }} dependencies)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { php: '8.2', dependencies: lowest }
+          - { php: '8.2', dependencies: highest }
+          - { php: '8.3', dependencies: highest }
+          - { php: '8.5', dependencies: highest }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring
+          coverage: none
+          tools: composer:v2
+      - name: Install
+        run: composer update --no-progress --prefer-dist ${{ matrix.dependencies == 'lowest' && '--prefer-lowest' || '' }}
+      - name: PHPUnit
+        run: vendor/bin/phpunit

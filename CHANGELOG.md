@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-Housekeeping after the first tag; no change to the package's code.
+## [1.0.0] - 2026-11-13
+
+The first stable version: rc.1's code unchanged, the public surface frozen for 1.x, and
+semantic versioning from here on (README, Stability). Upgrading: UPGRADE-1.0.md.
+
+- README: a Stability section. It says what 1.x keeps: interfaces a family implements (no
+  method added), classes a family extends (signatures of overridable methods unchanged),
+  classes it calls, the policy data and ids, the counting behaviour. It also says what 1.x does
+  not keep (`@internal`, messages). The install line is now `^1.0`. The README names
+  omnibridge/symfony's `Policy\RateLimiter` as the shared limiter and lists the PHP versions
+  tested.
+- `Tests/ApiSurfaceTest` and `Tests/api-1.x.txt`: the public surface (classes, constants,
+  properties, method signatures, with protected members where a subclass can see them; nothing
+  marked `@internal`), one line per member. A line gone or changed fails the test. The test
+  writes `self` the same way on every PHP version.
+- `Testing\RecordedChunk` and `Testing\RecordedStream` are marked `@internal`: they are built by
+  `RecordedHttpClient::stream()` and read through Symfony's interfaces.
+- CI: the package's tests on PHP 8.2 (lowest and highest dependencies), 8.3 and 8.5, beside
+  the 8.4 job (PHPUnit, PHPStan max, consumer install).
+- What the families still lack is left for 1.x minors, as additions that keep every signature a
+  family overrides. omnihub's notes list: conditional requests, a refusal on a 403 with
+  Retry-After, a clock for `Backoff`, timeouts and a size cap, every status given back,
+  `BareTestCase` reading the PSR-4 root, and the User-Agent check. Earlier proposals are left
+  the same way: counting at the check (a reservation), a provider's own operations under
+  all-operations limits, and a request naming its resource. 1.x keeps the documented behaviour,
+  and each can come as opt-in.
+
+Since rc.1, housekeeping with no change to the package's code:
 
 - `.gitattributes`: the release's source archive, and what Composer installs from it, leaves out
   `Tests/`, `.github/`, `docker/`, `phpunit.xml.dist`, the PHPStan configuration, `.gitignore` and

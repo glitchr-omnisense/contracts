@@ -13,12 +13,18 @@ here, once:
 | `Omnisense\Contracts\Testing\` | `RecordedHttpClient` (streams, routes by body), `RecordedResponse`, `MockHttp` (over Symfony's MockHttpClient), `BareTestCase` | test support |
 | `Omnisense\Contracts\Exception\` | `ExceptionInterface` (a family's exception interface extends it) and the generic exceptions | |
 
-It requires PHP 8.2 and `symfony/http-client-contracts` (interfaces only), nothing else.
-Framework glue lives in the bridges (omnibridge/symfony, omnibridge/laravel).
+It requires PHP 8.2 or later (tested on 8.2, 8.3, 8.4 and 8.5) and `symfony/http-client-contracts`
+(interfaces only), nothing else. Framework glue lives in the bridges (omnibridge/symfony,
+omnibridge/laravel).
 
 ```
-composer require omnisense/contracts
+composer require omnisense/contracts:^1.0
 ```
+
+Limits are counted by a `RateLimiterInterface`. `InMemoryRateLimiter` counts within one PHP
+process; a web application served by several processes gives a shared one. omnibridge/symfony's
+`Omnibridge\Symfony\Policy\RateLimiter` (on its 1.x branch, over symfony/rate-limiter and a cache
+pool) is one.
 
 ## Usage policies
 
@@ -59,6 +65,43 @@ $guard->cacheTtl(3600);                         // the time to live the terms al
 
 `vendor/bin/omnisense-policies` prints every declared policy of an application (or of package
 folders) as one JSON document.
+
+## Stability
+
+From 1.0.0 the package follows [semantic versioning](https://semver.org): a 1.x minor adds,
+it never breaks. `Tests/api-1.x.txt` lists the public surface that promise covers, and
+`Tests/ApiSurfaceTest` fails on any change to it.
+
+What 1.x keeps:
+
+- **Interfaces a family implements**: `ProviderInterface`, `CapabilitiesInterface`,
+  `ProviderFactoryInterface`, `DeclaresUsagePolicyInterface`, `RateLimiterInterface`,
+  `ConsumingRateLimiterInterface`, `ExceptionInterface`. No method is added to them in 1.x.
+  A new capability comes as a new interface that extends one of them, as
+  `ConsumingRateLimiterInterface` extends `RateLimiterInterface`.
+- **Classes a family extends**: `Config`, `ProviderFactory`, `Registry`, `JsonClient`, `Data`,
+  `Redaction`, `UsageLimitReached`, the exceptions, `BareTestCase`, `RecordedHttpClient` and
+  `RecordedResponse`. The signatures of their public and protected methods do not change, because
+  a family overrides them (`get()`, `request()`, `raw()`, `bytes()`, `decode()`...). A minor
+  may add a method, a constant or an optional constructor argument. As in Symfony's promise, a
+  method a subclass adds under the same name may then clash with one, so name a family's own
+  methods after the family. A subclass of `UsageLimitReached` keeps its
+  `(message, retryAfter, provider)` constructor, because `Backoff` and `PolicyGuard` build it.
+- **Classes a family calls** (the `final` and `readonly` classes, the enums): `PolicyGuard`,
+  `Backoff`, `UsagePolicy` and its parts, `PolicyBuilder`, `RateLimitHeaders`, `NoRetry`,
+  `MockHttp`... A minor may add methods, optional arguments and enum cases. Code that matches
+  on an enum has a default arm.
+- **Data**: every `policy.json` valid against 1.0's schema stays valid and reads the same in
+  1.x, and the ids of its limits stay the same. A key added in a minor is optional, and its
+  absence means what 1.0 did. A policy that uses the new key requires that minor.
+- **Behaviour**: what docs/policies.md describes, including when a call is counted (checked
+  before, recorded after it returns or throws).
+
+What 1.x does not keep: whatever is marked `@internal` (`Policy\Read`, `Http\SentOnce`,
+`Http\RetriedReads`, `Testing\RecordedChunk`, `Testing\RecordedStream`), the messages of
+exceptions, the tests, and the dev tools in `require-dev`.
+
+Upgrading from 1.0.0-rc.1: [UPGRADE-1.0.md](UPGRADE-1.0.md).
 
 ## Documentation
 

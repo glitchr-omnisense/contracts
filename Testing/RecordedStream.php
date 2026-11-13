@@ -14,6 +14,8 @@ use Symfony\Contracts\HttpClient\ResponseStreamInterface;
  * As Symfony's, a response's chunks are yielded once: a stream asked again
  * for it goes on from where the last one stopped ($progress, kept by the
  * client).
+ *
+ * @internal built by RecordedHttpClient::stream(); read it as Symfony's ResponseStreamInterface
  */
 final class RecordedStream implements ResponseStreamInterface
 {
